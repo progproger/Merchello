@@ -10,14 +10,17 @@ using Merchello.Core.Warehouses.Services.Parameters;
 using Merchello.Core.Warehouses.Factories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Umbraco.Cms.Persistence.EFCore.Scoping;
 
 namespace Merchello.Core.Warehouses.Services;
 
 public class WarehouseService(
-    IMerchDbContext dbContext,
+    IEFCoreScopeProvider<MerchelloDbContext> efCoreScopeProvider,
     WarehouseFactory warehouseFactory,
     ILogger<WarehouseService> logger) : IWarehouseService
 {
+    private readonly IEFCoreScopeProvider<MerchelloDbContext> _efCoreScopeProvider = efCoreScopeProvider;
+
     /// <summary>
     /// Selects the best warehouse for a product based on priority, region serviceability, and stock availability.
     /// If no single warehouse can fulfill the full quantity, attempts multi-warehouse allocation.
@@ -39,14 +42,17 @@ public class WarehouseService(
         // Load product with necessary relationships if not already loaded
         if (product.ProductRoot == null)
         {
-            var loadedProduct = await dbContext.Products
-                .Include(p => p.ProductRoot)
-                    .ThenInclude(pr => pr!.ProductRootWarehouses.OrderBy(prw => prw.PriorityOrder))
-                        .ThenInclude(prw => prw.Warehouse)
-                            .ThenInclude(w => w!.ServiceRegions)
-                .Include(p => p.ProductWarehouses)
-                    .ThenInclude(pw => pw.Warehouse)
-                .FirstOrDefaultAsync(p => p.Id == product.Id, cancellationToken);
+            using var scope = _efCoreScopeProvider.CreateScope();
+            var loadedProduct = await scope.ExecuteWithContextAsync(async db =>
+                await db.Products
+                    .Include(p => p.ProductRoot)
+                        .ThenInclude(pr => pr!.ProductRootWarehouses.OrderBy(prw => prw.PriorityOrder))
+                            .ThenInclude(prw => prw.Warehouse)
+                                .ThenInclude(w => w!.ServiceRegions)
+                    .Include(p => p.ProductWarehouses)
+                        .ThenInclude(pw => pw.Warehouse)
+                    .FirstOrDefaultAsync(p => p.Id == product.Id, cancellationToken));
+            scope.Complete();
 
             if (loadedProduct != null)
             {
@@ -75,7 +81,7 @@ public class WarehouseService(
         }
 
         // Collect eligible warehouses with stock info for potential multi-warehouse allocation
-        var warehousesWithStock = new List<(Warehouse warehouse, int availableStock, bool trackStock)>();
+        List<(Warehouse warehouse, int availableStock, bool trackStock)> warehousesWithStock = [];
 
         // PHASE 1: Try to find a single warehouse that can fulfill the full quantity
         foreach (var warehouse in eligibleWarehouses)
@@ -168,7 +174,7 @@ public class WarehouseService(
             if (totalAvailable >= quantity)
             {
                 // We can fulfill across multiple warehouses!
-                var allocations = new List<WarehouseAllocation>();
+                List<WarehouseAllocation> allocations = [];
                 var remainingQuantity = quantity;
 
                 foreach (var (warehouse, availableStock, _) in warehousesWithStock)
@@ -231,8 +237,13 @@ public class WarehouseService(
         warehouse.AutomationMethod = parameters.AutomationMethod;
         warehouse.ExtendedData = parameters.ExtendedData ?? new Dictionary<string, object>();
 
-        dbContext.Warehouses.Add(warehouse);
-        await dbContext.SaveChangesAsyncLogged(logger, result, cancellationToken);
+        using var scope = _efCoreScopeProvider.CreateScope();
+        await scope.ExecuteWithContextAsync<Task>(async db =>
+        {
+            db.Warehouses.Add(warehouse);
+            await db.SaveChangesAsyncLogged(logger, result, cancellationToken);
+        });
+        scope.Complete();
 
         result.ResultObject = warehouse;
         return result;
@@ -247,39 +258,45 @@ public class WarehouseService(
     {
         var result = new CrudResult<Warehouse>();
 
-        var warehouse = await dbContext.Warehouses
-            .FirstOrDefaultAsync(w => w.Id == parameters.WarehouseId, cancellationToken);
-
-        if (warehouse == null)
+        using var scope = _efCoreScopeProvider.CreateScope();
+        await scope.ExecuteWithContextAsync<Task>(async db =>
         {
-            result.Messages.Add(new Shared.Models.ResultMessage
+            var warehouse = await db.Warehouses
+                .FirstOrDefaultAsync(w => w.Id == parameters.WarehouseId, cancellationToken);
+
+            if (warehouse == null)
             {
-                Message = "Warehouse not found",
-                ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
-            });
-            return result;
-        }
+                result.Messages.Add(new Shared.Models.ResultMessage
+                {
+                    Message = "Warehouse not found",
+                    ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
+                });
+                return;
+            }
 
-        if (parameters.Name != null)
-            warehouse.Name = parameters.Name;
+            if (parameters.Name != null)
+                warehouse.Name = parameters.Name;
 
-        if (parameters.Code != null)
-            warehouse.Code = parameters.Code;
+            if (parameters.Code != null)
+                warehouse.Code = parameters.Code;
 
-        if (parameters.Address != null)
-            warehouse.Address = parameters.Address;
+            if (parameters.Address != null)
+                warehouse.Address = parameters.Address;
 
-        if (parameters.AutomationMethod != null)
-            warehouse.AutomationMethod = parameters.AutomationMethod;
+            if (parameters.AutomationMethod != null)
+                warehouse.AutomationMethod = parameters.AutomationMethod;
 
-        if (parameters.ExtendedData != null)
-            warehouse.ExtendedData = parameters.ExtendedData;
+            if (parameters.ExtendedData != null)
+                warehouse.ExtendedData = parameters.ExtendedData;
 
-        warehouse.DateUpdated = DateTime.UtcNow;
+            warehouse.DateUpdated = DateTime.UtcNow;
 
-        await dbContext.SaveChangesAsyncLogged(logger, result, cancellationToken);
+            await db.SaveChangesAsyncLogged(logger, result, cancellationToken);
 
-        result.ResultObject = warehouse;
+            result.ResultObject = warehouse;
+        });
+        scope.Complete();
+
         return result;
     }
 
@@ -293,74 +310,80 @@ public class WarehouseService(
     {
         var result = new CrudResult<bool>();
 
-        var warehouse = await dbContext.Warehouses
-            .Include(w => w.ProductRootWarehouses)
-            .Include(w => w.ProductWarehouses)
-            .FirstOrDefaultAsync(w => w.Id == warehouseId, cancellationToken);
-
-        if (warehouse == null)
+        using var scope = _efCoreScopeProvider.CreateScope();
+        await scope.ExecuteWithContextAsync<Task>(async db =>
         {
-            result.Messages.Add(new Shared.Models.ResultMessage
-            {
-                Message = "Warehouse not found",
-                ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
-            });
-            return result;
-        }
+            var warehouse = await db.Warehouses
+                .Include(w => w.ProductRootWarehouses)
+                .Include(w => w.ProductWarehouses)
+                .FirstOrDefaultAsync(w => w.Id == warehouseId, cancellationToken);
 
-        // Check for dependencies
-        var hasProductRootReferences = warehouse.ProductRootWarehouses.Any();
-        var hasStockRecords = warehouse.ProductWarehouses.Any();
-
-        if (!force && (hasProductRootReferences || hasStockRecords))
-        {
-            if (hasProductRootReferences)
+            if (warehouse == null)
             {
                 result.Messages.Add(new Shared.Models.ResultMessage
                 {
-                    Message = $"Warehouse is assigned to {warehouse.ProductRootWarehouses.Count} product(s). Use force=true to delete anyway.",
+                    Message = "Warehouse not found",
                     ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
                 });
+                return;
             }
 
-            if (hasStockRecords)
+            // Check for dependencies
+            var hasProductRootReferences = warehouse.ProductRootWarehouses.Any();
+            var hasStockRecords = warehouse.ProductWarehouses.Any();
+
+            if (!force && (hasProductRootReferences || hasStockRecords))
             {
-                result.Messages.Add(new Shared.Models.ResultMessage
+                if (hasProductRootReferences)
                 {
-                    Message = $"Warehouse has {warehouse.ProductWarehouses.Count} stock record(s). Use force=true to delete anyway.",
-                    ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
-                });
+                    result.Messages.Add(new Shared.Models.ResultMessage
+                    {
+                        Message = $"Warehouse is assigned to {warehouse.ProductRootWarehouses.Count} product(s). Use force=true to delete anyway.",
+                        ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
+                    });
+                }
+
+                if (hasStockRecords)
+                {
+                    result.Messages.Add(new Shared.Models.ResultMessage
+                    {
+                        Message = $"Warehouse has {warehouse.ProductWarehouses.Count} stock record(s). Use force=true to delete anyway.",
+                        ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
+                    });
+                }
+
+                return;
             }
 
-            return result;
-        }
-
-        // Force delete - cleanup dependencies
-        if (force)
-        {
-            if (hasStockRecords)
+            // Force delete - cleanup dependencies
+            if (force)
             {
-                dbContext.ProductWarehouses.RemoveRange(warehouse.ProductWarehouses);
-                logger.LogWarning(
-                    "Force deleting warehouse {WarehouseId} - removed {Count} stock records",
-                    warehouseId,
-                    warehouse.ProductWarehouses.Count);
+                if (hasStockRecords)
+                {
+                    db.ProductWarehouses.RemoveRange(warehouse.ProductWarehouses);
+                    logger.LogWarning(
+                        "Force deleting warehouse {WarehouseId} - removed {Count} stock records",
+                        warehouseId,
+                        warehouse.ProductWarehouses.Count);
+                }
+
+                if (hasProductRootReferences)
+                {
+                    db.ProductRootWarehouses.RemoveRange(warehouse.ProductRootWarehouses);
+                    logger.LogWarning(
+                        "Force deleting warehouse {WarehouseId} - removed {Count} product root references",
+                        warehouseId,
+                        warehouse.ProductRootWarehouses.Count);
+                }
             }
 
-            if (hasProductRootReferences)
-            {
-                dbContext.ProductRootWarehouses.RemoveRange(warehouse.ProductRootWarehouses);
-                logger.LogWarning(
-                    "Force deleting warehouse {WarehouseId} - removed {Count} product root references",
-                    warehouseId,
-                    warehouse.ProductRootWarehouses.Count);
-            }
-        }
+            db.Warehouses.Remove(warehouse);
+            await db.SaveChangesAsyncLogged(logger, result, cancellationToken);
 
-        dbContext.Warehouses.Remove(warehouse);
-        await dbContext.SaveChangesAsyncLogged(logger, result, cancellationToken);
+            result.ResultObject = true;
+        });
+        scope.Complete();
 
-        result.ResultObject = true;
         return result;
     }
 
@@ -379,59 +402,65 @@ public class WarehouseService(
     {
         var result = new CrudResult<bool>();
 
-        // Validate product root exists
-        var productRootExists = await dbContext.RootProducts
-            .AnyAsync(pr => pr.Id == productRootId, cancellationToken);
-
-        if (!productRootExists)
+        using var scope = _efCoreScopeProvider.CreateScope();
+        await scope.ExecuteWithContextAsync<Task>(async db =>
         {
-            result.Messages.Add(new Shared.Models.ResultMessage
+            // Validate product root exists
+            var productRootExists = await db.RootProducts
+                .AnyAsync(pr => pr.Id == productRootId, cancellationToken);
+
+            if (!productRootExists)
             {
-                Message = "Product root not found",
-                ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
-            });
-            return result;
-        }
+                result.Messages.Add(new Shared.Models.ResultMessage
+                {
+                    Message = "Product root not found",
+                    ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
+                });
+                return;
+            }
 
-        // Validate warehouse exists
-        var warehouseExists = await dbContext.Warehouses
-            .AnyAsync(w => w.Id == warehouseId, cancellationToken);
+            // Validate warehouse exists
+            var warehouseExists = await db.Warehouses
+                .AnyAsync(w => w.Id == warehouseId, cancellationToken);
 
-        if (!warehouseExists)
-        {
-            result.Messages.Add(new Shared.Models.ResultMessage
+            if (!warehouseExists)
             {
-                Message = "Warehouse not found",
-                ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
-            });
-            return result;
-        }
+                result.Messages.Add(new Shared.Models.ResultMessage
+                {
+                    Message = "Warehouse not found",
+                    ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
+                });
+                return;
+            }
 
-        // Check if already exists
-        var exists = await dbContext.ProductRootWarehouses
-            .AnyAsync(prw => prw.ProductRootId == productRootId && prw.WarehouseId == warehouseId, cancellationToken);
+            // Check if already exists
+            var exists = await db.ProductRootWarehouses
+                .AnyAsync(prw => prw.ProductRootId == productRootId && prw.WarehouseId == warehouseId, cancellationToken);
 
-        if (exists)
-        {
-            result.Messages.Add(new Shared.Models.ResultMessage
+            if (exists)
             {
-                Message = "Warehouse is already assigned to this product root",
-                ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
-            });
-            return result;
-        }
+                result.Messages.Add(new Shared.Models.ResultMessage
+                {
+                    Message = "Warehouse is already assigned to this product root",
+                    ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
+                });
+                return;
+            }
 
-        var productRootWarehouse = new ProductRootWarehouse
-        {
-            ProductRootId = productRootId,
-            WarehouseId = warehouseId,
-            PriorityOrder = priorityOrder
-        };
+            var productRootWarehouse = new ProductRootWarehouse
+            {
+                ProductRootId = productRootId,
+                WarehouseId = warehouseId,
+                PriorityOrder = priorityOrder
+            };
 
-        dbContext.ProductRootWarehouses.Add(productRootWarehouse);
-        await dbContext.SaveChangesAsyncLogged(logger, result, cancellationToken);
+            db.ProductRootWarehouses.Add(productRootWarehouse);
+            await db.SaveChangesAsyncLogged(logger, result, cancellationToken);
 
-        result.ResultObject = true;
+            result.ResultObject = true;
+        });
+        scope.Complete();
+
         return result;
     }
 
@@ -445,47 +474,53 @@ public class WarehouseService(
     {
         var result = new CrudResult<bool>();
 
-        var productRootWarehouse = await dbContext.ProductRootWarehouses
-            .FirstOrDefaultAsync(
-                prw => prw.ProductRootId == productRootId && prw.WarehouseId == warehouseId,
-                cancellationToken);
-
-        if (productRootWarehouse == null)
+        using var scope = _efCoreScopeProvider.CreateScope();
+        await scope.ExecuteWithContextAsync<Task>(async db =>
         {
-            result.Messages.Add(new Shared.Models.ResultMessage
+            var productRootWarehouse = await db.ProductRootWarehouses
+                .FirstOrDefaultAsync(
+                    prw => prw.ProductRootId == productRootId && prw.WarehouseId == warehouseId,
+                    cancellationToken);
+
+            if (productRootWarehouse == null)
             {
-                Message = "Warehouse is not assigned to this product root",
-                ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
-            });
-            return result;
-        }
+                result.Messages.Add(new Shared.Models.ResultMessage
+                {
+                    Message = "Warehouse is not assigned to this product root",
+                    ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
+                });
+                return;
+            }
 
-        // Get all products (variants) for this product root
-        var productIds = await dbContext.Products
-            .Where(p => p.ProductRootId == productRootId)
-            .Select(p => p.Id)
-            .ToListAsync(cancellationToken);
+            // Get all products (variants) for this product root
+            var productIds = await db.Products
+                .Where(p => p.ProductRootId == productRootId)
+                .Select(p => p.Id)
+                .ToListAsync(cancellationToken);
 
-        // Delete all ProductWarehouse records for these variants at this warehouse
-        var stockRecords = await dbContext.ProductWarehouses
-            .Where(pw => productIds.Contains(pw.ProductId) && pw.WarehouseId == warehouseId)
-            .ToListAsync(cancellationToken);
+            // Delete all ProductWarehouse records for these variants at this warehouse
+            var stockRecords = await db.ProductWarehouses
+                .Where(pw => productIds.Contains(pw.ProductId) && pw.WarehouseId == warehouseId)
+                .ToListAsync(cancellationToken);
 
-        if (stockRecords.Any())
-        {
-            dbContext.ProductWarehouses.RemoveRange(stockRecords);
-            logger.LogInformation(
-                "Removing warehouse {WarehouseId} from product root {ProductRootId} - deleted {Count} stock records",
-                warehouseId,
-                productRootId,
-                stockRecords.Count);
-        }
+            if (stockRecords.Any())
+            {
+                db.ProductWarehouses.RemoveRange(stockRecords);
+                logger.LogInformation(
+                    "Removing warehouse {WarehouseId} from product root {ProductRootId} - deleted {Count} stock records",
+                    warehouseId,
+                    productRootId,
+                    stockRecords.Count);
+            }
 
-        // Delete the ProductRootWarehouse record
-        dbContext.ProductRootWarehouses.Remove(productRootWarehouse);
-        await dbContext.SaveChangesAsyncLogged(logger, result, cancellationToken);
+            // Delete the ProductRootWarehouse record
+            db.ProductRootWarehouses.Remove(productRootWarehouse);
+            await db.SaveChangesAsyncLogged(logger, result, cancellationToken);
 
-        result.ResultObject = true;
+            result.ResultObject = true;
+        });
+        scope.Complete();
+
         return result;
     }
 
@@ -500,25 +535,31 @@ public class WarehouseService(
     {
         var result = new CrudResult<bool>();
 
-        var productRootWarehouse = await dbContext.ProductRootWarehouses
-            .FirstOrDefaultAsync(
-                prw => prw.ProductRootId == productRootId && prw.WarehouseId == warehouseId,
-                cancellationToken);
-
-        if (productRootWarehouse == null)
+        using var scope = _efCoreScopeProvider.CreateScope();
+        await scope.ExecuteWithContextAsync<Task>(async db =>
         {
-            result.Messages.Add(new Shared.Models.ResultMessage
+            var productRootWarehouse = await db.ProductRootWarehouses
+                .FirstOrDefaultAsync(
+                    prw => prw.ProductRootId == productRootId && prw.WarehouseId == warehouseId,
+                    cancellationToken);
+
+            if (productRootWarehouse == null)
             {
-                Message = "Warehouse is not assigned to this product root",
-                ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
-            });
-            return result;
-        }
+                result.Messages.Add(new Shared.Models.ResultMessage
+                {
+                    Message = "Warehouse is not assigned to this product root",
+                    ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
+                });
+                return;
+            }
 
-        productRootWarehouse.PriorityOrder = newPriorityOrder;
-        await dbContext.SaveChangesAsyncLogged(logger, result, cancellationToken);
+            productRootWarehouse.PriorityOrder = newPriorityOrder;
+            await db.SaveChangesAsyncLogged(logger, result, cancellationToken);
 
-        result.ResultObject = true;
+            result.ResultObject = true;
+        });
+        scope.Complete();
+
         return result;
     }
 
@@ -549,62 +590,68 @@ public class WarehouseService(
             return result;
         }
 
-        // Validate product exists
-        var productExists = await dbContext.Products
-            .AnyAsync(p => p.Id == productId, cancellationToken);
-
-        if (!productExists)
+        using var scope = _efCoreScopeProvider.CreateScope();
+        await scope.ExecuteWithContextAsync<Task>(async db =>
         {
-            result.Messages.Add(new Shared.Models.ResultMessage
+            // Validate product exists
+            var productExists = await db.Products
+                .AnyAsync(p => p.Id == productId, cancellationToken);
+
+            if (!productExists)
             {
-                Message = "Product not found",
-                ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
-            });
-            return result;
-        }
+                result.Messages.Add(new Shared.Models.ResultMessage
+                {
+                    Message = "Product not found",
+                    ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
+                });
+                return;
+            }
 
-        // Validate warehouse exists
-        var warehouseExists = await dbContext.Warehouses
-            .AnyAsync(w => w.Id == warehouseId, cancellationToken);
+            // Validate warehouse exists
+            var warehouseExists = await db.Warehouses
+                .AnyAsync(w => w.Id == warehouseId, cancellationToken);
 
-        if (!warehouseExists)
-        {
-            result.Messages.Add(new Shared.Models.ResultMessage
+            if (!warehouseExists)
             {
-                Message = "Warehouse not found",
-                ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
-            });
-            return result;
-        }
+                result.Messages.Add(new Shared.Models.ResultMessage
+                {
+                    Message = "Warehouse not found",
+                    ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
+                });
+                return;
+            }
 
-        // Get or create ProductWarehouse record
-        var productWarehouse = await dbContext.ProductWarehouses
-            .FirstOrDefaultAsync(pw => pw.ProductId == productId && pw.WarehouseId == warehouseId, cancellationToken);
+            // Get or create ProductWarehouse record
+            var productWarehouse = await db.ProductWarehouses
+                .FirstOrDefaultAsync(pw => pw.ProductId == productId && pw.WarehouseId == warehouseId, cancellationToken);
 
-        if (productWarehouse == null)
-        {
-            productWarehouse = new ProductWarehouse
+            if (productWarehouse == null)
             {
-                ProductId = productId,
-                WarehouseId = warehouseId,
-                Stock = stock,
-                ReorderPoint = reorderPoint,
-                ReorderQuantity = reorderQuantity
-            };
-            dbContext.ProductWarehouses.Add(productWarehouse);
-        }
-        else
-        {
-            productWarehouse.Stock = stock;
-            if (reorderPoint.HasValue)
-                productWarehouse.ReorderPoint = reorderPoint;
-            if (reorderQuantity.HasValue)
-                productWarehouse.ReorderQuantity = reorderQuantity;
-        }
+                productWarehouse = new ProductWarehouse
+                {
+                    ProductId = productId,
+                    WarehouseId = warehouseId,
+                    Stock = stock,
+                    ReorderPoint = reorderPoint,
+                    ReorderQuantity = reorderQuantity
+                };
+                db.ProductWarehouses.Add(productWarehouse);
+            }
+            else
+            {
+                productWarehouse.Stock = stock;
+                if (reorderPoint.HasValue)
+                    productWarehouse.ReorderPoint = reorderPoint;
+                if (reorderQuantity.HasValue)
+                    productWarehouse.ReorderQuantity = reorderQuantity;
+            }
 
-        await dbContext.SaveChangesAsyncLogged(logger, result, cancellationToken);
+            await db.SaveChangesAsyncLogged(logger, result, cancellationToken);
 
-        result.ResultObject = true;
+            result.ResultObject = true;
+        });
+        scope.Complete();
+
         return result;
     }
 
@@ -617,47 +664,53 @@ public class WarehouseService(
     {
         var result = new CrudResult<bool>();
 
-        var productWarehouse = await dbContext.ProductWarehouses
-            .FirstOrDefaultAsync(
-                pw => pw.ProductId == parameters.ProductId && pw.WarehouseId == parameters.WarehouseId,
-                cancellationToken);
-
-        if (productWarehouse == null)
+        using var scope = _efCoreScopeProvider.CreateScope();
+        await scope.ExecuteWithContextAsync<Task>(async db =>
         {
-            result.Messages.Add(new Shared.Models.ResultMessage
+            var productWarehouse = await db.ProductWarehouses
+                .FirstOrDefaultAsync(
+                    pw => pw.ProductId == parameters.ProductId && pw.WarehouseId == parameters.WarehouseId,
+                    cancellationToken);
+
+            if (productWarehouse == null)
             {
-                Message = "Product stock record not found at this warehouse",
-                ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
-            });
-            return result;
-        }
+                result.Messages.Add(new Shared.Models.ResultMessage
+                {
+                    Message = "Product stock record not found at this warehouse",
+                    ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
+                });
+                return;
+            }
 
-        var newStock = productWarehouse.Stock + parameters.Adjustment;
+            var newStock = productWarehouse.Stock + parameters.Adjustment;
 
-        if (newStock < 0)
-        {
-            result.Messages.Add(new Shared.Models.ResultMessage
+            if (newStock < 0)
             {
-                Message = $"Cannot adjust stock: would result in negative stock ({newStock})",
-                ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
-            });
-            return result;
-        }
+                result.Messages.Add(new Shared.Models.ResultMessage
+                {
+                    Message = $"Cannot adjust stock: would result in negative stock ({newStock})",
+                    ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
+                });
+                return;
+            }
 
-        productWarehouse.Stock = newStock;
+            productWarehouse.Stock = newStock;
 
-        logger.LogInformation(
-            "Stock adjusted for product {ProductId} at warehouse {WarehouseId}: {OldStock} -> {NewStock} (adjustment: {Adjustment}, reason: {Reason})",
-            parameters.ProductId,
-            parameters.WarehouseId,
-            productWarehouse.Stock - parameters.Adjustment,
-            productWarehouse.Stock,
-            parameters.Adjustment,
-            parameters.Reason ?? "Not specified");
+            logger.LogInformation(
+                "Stock adjusted for product {ProductId} at warehouse {WarehouseId}: {OldStock} -> {NewStock} (adjustment: {Adjustment}, reason: {Reason})",
+                parameters.ProductId,
+                parameters.WarehouseId,
+                productWarehouse.Stock - parameters.Adjustment,
+                productWarehouse.Stock,
+                parameters.Adjustment,
+                parameters.Reason ?? "Not specified");
 
-        await dbContext.SaveChangesAsyncLogged(logger, result, cancellationToken);
+            await db.SaveChangesAsyncLogged(logger, result, cancellationToken);
 
-        result.ResultObject = true;
+            result.ResultObject = true;
+        });
+        scope.Complete();
+
         return result;
     }
 
@@ -693,84 +746,90 @@ public class WarehouseService(
             return result;
         }
 
-        // Get source warehouse stock
-        var fromStock = await dbContext.ProductWarehouses
-            .FirstOrDefaultAsync(
-                pw => pw.ProductId == productId && pw.WarehouseId == fromWarehouseId,
-                cancellationToken);
-
-        if (fromStock == null)
+        using var scope = _efCoreScopeProvider.CreateScope();
+        await scope.ExecuteWithContextAsync<Task>(async db =>
         {
-            result.Messages.Add(new Shared.Models.ResultMessage
-            {
-                Message = "Source warehouse does not have this product",
-                ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
-            });
-            return result;
-        }
+            // Get source warehouse stock
+            var fromStock = await db.ProductWarehouses
+                .FirstOrDefaultAsync(
+                    pw => pw.ProductId == productId && pw.WarehouseId == fromWarehouseId,
+                    cancellationToken);
 
-        // Check available stock (Stock - ReservedStock) if tracking is enabled
-        var availableStock = fromStock.TrackStock
-            ? fromStock.Stock - fromStock.ReservedStock
-            : fromStock.Stock;
-
-        if (availableStock < quantity)
-        {
-            result.Messages.Add(new Shared.Models.ResultMessage
-            {
-                Message = fromStock.TrackStock
-                    ? $"Insufficient available stock in source warehouse: {availableStock} available ({fromStock.Stock} total - {fromStock.ReservedStock} reserved)"
-                    : $"Insufficient stock in source warehouse: {fromStock.Stock} < {quantity}",
-                ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
-            });
-            return result;
-        }
-
-        // Get or create destination warehouse stock
-        var toStock = await dbContext.ProductWarehouses
-            .FirstOrDefaultAsync(
-                pw => pw.ProductId == productId && pw.WarehouseId == toWarehouseId,
-                cancellationToken);
-
-        if (toStock == null)
-        {
-            // Validate destination warehouse exists
-            var warehouseExists = await dbContext.Warehouses
-                .AnyAsync(w => w.Id == toWarehouseId, cancellationToken);
-
-            if (!warehouseExists)
+            if (fromStock == null)
             {
                 result.Messages.Add(new Shared.Models.ResultMessage
                 {
-                    Message = "Destination warehouse not found",
+                    Message = "Source warehouse does not have this product",
                     ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
                 });
-                return result;
+                return;
             }
 
-            toStock = new ProductWarehouse
+            // Check available stock (Stock - ReservedStock) if tracking is enabled
+            var availableStock = fromStock.TrackStock
+                ? fromStock.Stock - fromStock.ReservedStock
+                : fromStock.Stock;
+
+            if (availableStock < quantity)
             {
-                ProductId = productId,
-                WarehouseId = toWarehouseId,
-                Stock = 0
-            };
-            dbContext.ProductWarehouses.Add(toStock);
-        }
+                result.Messages.Add(new Shared.Models.ResultMessage
+                {
+                    Message = fromStock.TrackStock
+                        ? $"Insufficient available stock in source warehouse: {availableStock} available ({fromStock.Stock} total - {fromStock.ReservedStock} reserved)"
+                        : $"Insufficient stock in source warehouse: {fromStock.Stock} < {quantity}",
+                    ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
+                });
+                return;
+            }
 
-        // Perform transfer
-        fromStock.Stock -= quantity;
-        toStock.Stock += quantity;
+            // Get or create destination warehouse stock
+            var toStock = await db.ProductWarehouses
+                .FirstOrDefaultAsync(
+                    pw => pw.ProductId == productId && pw.WarehouseId == toWarehouseId,
+                    cancellationToken);
 
-        logger.LogInformation(
-            "Transferred {Quantity} units of product {ProductId} from warehouse {FromWarehouse} to {ToWarehouse}",
-            quantity,
-            productId,
-            fromWarehouseId,
-            toWarehouseId);
+            if (toStock == null)
+            {
+                // Validate destination warehouse exists
+                var warehouseExists = await db.Warehouses
+                    .AnyAsync(w => w.Id == toWarehouseId, cancellationToken);
 
-        await dbContext.SaveChangesAsyncLogged(logger, result, cancellationToken);
+                if (!warehouseExists)
+                {
+                    result.Messages.Add(new Shared.Models.ResultMessage
+                    {
+                        Message = "Destination warehouse not found",
+                        ResultMessageType = Shared.Models.Enums.ResultMessageType.Error
+                    });
+                    return;
+                }
 
-        result.ResultObject = true;
+                toStock = new ProductWarehouse
+                {
+                    ProductId = productId,
+                    WarehouseId = toWarehouseId,
+                    Stock = 0
+                };
+                db.ProductWarehouses.Add(toStock);
+            }
+
+            // Perform transfer
+            fromStock.Stock -= quantity;
+            toStock.Stock += quantity;
+
+            logger.LogInformation(
+                "Transferred {Quantity} units of product {ProductId} from warehouse {FromWarehouse} to {ToWarehouse}",
+                quantity,
+                productId,
+                fromWarehouseId,
+                toWarehouseId);
+
+            await db.SaveChangesAsyncLogged(logger, result, cancellationToken);
+
+            result.ResultObject = true;
+        });
+        scope.Complete();
+
         return result;
     }
 
@@ -779,9 +838,13 @@ public class WarehouseService(
     /// </summary>
     public async Task<List<Warehouse>> GetWarehouses(CancellationToken cancellationToken = default)
     {
-        return await dbContext.Warehouses
-            .OrderBy(w => w.Name)
-            .ToListAsync(cancellationToken);
+        using var scope = _efCoreScopeProvider.CreateScope();
+        var result = await scope.ExecuteWithContextAsync(async db =>
+            await db.Warehouses
+                .OrderBy(w => w.Name)
+                .ToListAsync(cancellationToken));
+        scope.Complete();
+        return result;
     }
 
     /// <summary>
@@ -791,21 +854,25 @@ public class WarehouseService(
         Guid productId,
         CancellationToken cancellationToken = default)
     {
-        return await dbContext.ProductWarehouses
-            .Where(pw => pw.ProductId == productId)
-            .Include(pw => pw.Warehouse)
-            .Select(pw => new ProductStockLevel
-            {
-                WarehouseId = pw.WarehouseId,
-                WarehouseName = pw.Warehouse.Name,
-                WarehouseCode = pw.Warehouse.Code,
-                Stock = pw.Stock,
-                ReservedStock = pw.ReservedStock,
-                TrackStock = pw.TrackStock,
-                ReorderPoint = pw.ReorderPoint,
-                ReorderQuantity = pw.ReorderQuantity
-            })
-            .ToListAsync(cancellationToken);
+        using var scope = _efCoreScopeProvider.CreateScope();
+        var result = await scope.ExecuteWithContextAsync(async db =>
+            await db.ProductWarehouses
+                .Where(pw => pw.ProductId == productId)
+                .Include(pw => pw.Warehouse)
+                .Select(pw => new ProductStockLevel
+                {
+                    WarehouseId = pw.WarehouseId,
+                    WarehouseName = pw.Warehouse.Name,
+                    WarehouseCode = pw.Warehouse.Code,
+                    Stock = pw.Stock,
+                    ReservedStock = pw.ReservedStock,
+                    TrackStock = pw.TrackStock,
+                    ReorderPoint = pw.ReorderPoint,
+                    ReorderQuantity = pw.ReorderQuantity
+                })
+                .ToListAsync(cancellationToken));
+        scope.Complete();
+        return result;
     }
 
     /// <summary>
@@ -816,32 +883,38 @@ public class WarehouseService(
         bool lowStockOnly = false,
         CancellationToken cancellationToken = default)
     {
-        IQueryable<ProductWarehouse> query = dbContext.ProductWarehouses
-            .Where(pw => pw.WarehouseId == warehouseId);
-
-        if (lowStockOnly)
+        using var scope = _efCoreScopeProvider.CreateScope();
+        var result = await scope.ExecuteWithContextAsync(async db =>
         {
-            // For low stock filtering, check available stock (Stock - ReservedStock) for tracked items
-            query = query.Where(pw => pw.ReorderPoint.HasValue &&
-                (pw.TrackStock
-                    ? (pw.Stock - pw.ReservedStock) <= pw.ReorderPoint.Value
-                    : pw.Stock <= pw.ReorderPoint.Value));
-        }
+            IQueryable<ProductWarehouse> query = db.ProductWarehouses
+                .Where(pw => pw.WarehouseId == warehouseId);
 
-        return await query
-            .Include(pw => pw.Product)
-            .Select(pw => new WarehouseInventoryItem
+            if (lowStockOnly)
             {
-                ProductId = pw.ProductId,
-                ProductName = pw.Product.Name,
-                Sku = pw.Product.Sku,
-                Stock = pw.Stock,
-                ReservedStock = pw.ReservedStock,
-                TrackStock = pw.TrackStock,
-                ReorderPoint = pw.ReorderPoint,
-                ReorderQuantity = pw.ReorderQuantity
-            })
-            .ToListAsync(cancellationToken);
+                // For low stock filtering, check available stock (Stock - ReservedStock) for tracked items
+                query = query.Where(pw => pw.ReorderPoint.HasValue &&
+                    (pw.TrackStock
+                        ? (pw.Stock - pw.ReservedStock) <= pw.ReorderPoint.Value
+                        : pw.Stock <= pw.ReorderPoint.Value));
+            }
+
+            return await query
+                .Include(pw => pw.Product)
+                .Select(pw => new WarehouseInventoryItem
+                {
+                    ProductId = pw.ProductId,
+                    ProductName = pw.Product.Name,
+                    Sku = pw.Product.Sku,
+                    Stock = pw.Stock,
+                    ReservedStock = pw.ReservedStock,
+                    TrackStock = pw.TrackStock,
+                    ReorderPoint = pw.ReorderPoint,
+                    ReorderQuantity = pw.ReorderQuantity
+                })
+                .ToListAsync(cancellationToken);
+        });
+        scope.Complete();
+        return result;
     }
 
     /// <summary>
@@ -851,34 +924,39 @@ public class WarehouseService(
         Guid? warehouseId = null,
         CancellationToken cancellationToken = default)
     {
-        // Check available stock (Stock - ReservedStock) for tracked items, total Stock for untracked
-        IQueryable<ProductWarehouse> query = dbContext.ProductWarehouses
-            .Where(pw => pw.ReorderPoint.HasValue &&
-                (pw.TrackStock
-                    ? (pw.Stock - pw.ReservedStock) <= pw.ReorderPoint.Value
-                    : pw.Stock <= pw.ReorderPoint.Value));
-
-        if (warehouseId.HasValue)
+        using var scope = _efCoreScopeProvider.CreateScope();
+        var result = await scope.ExecuteWithContextAsync(async db =>
         {
-            query = query.Where(pw => pw.WarehouseId == warehouseId.Value);
-        }
+            // Check available stock (Stock - ReservedStock) for tracked items, total Stock for untracked
+            IQueryable<ProductWarehouse> query = db.ProductWarehouses
+                .Where(pw => pw.ReorderPoint.HasValue &&
+                    (pw.TrackStock
+                        ? (pw.Stock - pw.ReservedStock) <= pw.ReorderPoint.Value
+                        : pw.Stock <= pw.ReorderPoint.Value));
 
-        return await query
-            .Include(pw => pw.Product)
-            .Select(pw => new WarehouseInventoryItem
+            if (warehouseId.HasValue)
             {
-                ProductId = pw.ProductId,
-                ProductName = pw.Product.Name,
-                Sku = pw.Product.Sku,
-                Stock = pw.Stock,
-                ReservedStock = pw.ReservedStock,
-                TrackStock = pw.TrackStock,
-                ReorderPoint = pw.ReorderPoint,
-                ReorderQuantity = pw.ReorderQuantity
-            })
-            .ToListAsync(cancellationToken);
+                query = query.Where(pw => pw.WarehouseId == warehouseId.Value);
+            }
+
+            return await query
+                .Include(pw => pw.Product)
+                .Select(pw => new WarehouseInventoryItem
+                {
+                    ProductId = pw.ProductId,
+                    ProductName = pw.Product.Name,
+                    Sku = pw.Product.Sku,
+                    Stock = pw.Stock,
+                    ReservedStock = pw.ReservedStock,
+                    TrackStock = pw.TrackStock,
+                    ReorderPoint = pw.ReorderPoint,
+                    ReorderQuantity = pw.ReorderQuantity
+                })
+                .ToListAsync(cancellationToken);
+        });
+        scope.Complete();
+        return result;
     }
 
     #endregion
 }
-

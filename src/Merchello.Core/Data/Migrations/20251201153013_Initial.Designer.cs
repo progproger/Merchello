@@ -3,64 +3,114 @@ using System;
 using Merchello.Core.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace Merchello.Core.Data.Migrations.SqLite
+namespace Merchello.Core.Data.Migrations
 {
-    [DbContext(typeof(SqliteMerchDbContext))]
-    [Migration("20251020163048_Initial")]
+    [DbContext(typeof(MerchelloDbContext))]
+    [Migration("20251201153013_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "9.0.10");
+            modelBuilder
+                .HasAnnotation("ProductVersion", "10.0.0")
+                .HasAnnotation("Relational:MaxIdentifierLength", 128);
+
+            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("MerchProductFiltersProducts", b =>
+                {
+                    b.Property<Guid>("FilterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("FilterId", "ProductId");
+
+                    b.HasIndex("ProductId");
+
+                    b.ToTable("MerchProductFiltersProducts");
+                });
+
+            modelBuilder.Entity("MerchProductRootCategories", b =>
+                {
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProductRootId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("CategoryId", "ProductRootId");
+
+                    b.HasIndex("ProductRootId");
+
+                    b.ToTable("MerchProductRootCategories");
+                });
+
+            modelBuilder.Entity("MerchProductRootShippingOptions", b =>
+                {
+                    b.Property<Guid>("ProductRootId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ShippingOptionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("ProductRootId", "ShippingOptionId");
+
+                    b.HasIndex("ShippingOptionId");
+
+                    b.ToTable("MerchProductRootShippingOptions");
+                });
 
             modelBuilder.Entity("Merchello.Core.Accounting.Models.Invoice", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("AdjustedSubTotal")
                         .HasPrecision(18, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("Adjustments")
                         .IsRequired()
                         .HasMaxLength(3000)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(3000)");
 
                     b.Property<Guid?>("CustomerId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("Discount")
                         .HasPrecision(18, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("Notes")
                         .IsRequired()
                         .HasMaxLength(3000)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(3000)");
 
                     b.Property<decimal>("SubTotal")
                         .HasPrecision(18, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("Tax")
                         .HasPrecision(18, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("TaxRounding")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<decimal>("Total")
                         .HasPrecision(18, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");
 
@@ -71,59 +121,59 @@ namespace Merchello.Core.Data.Migrations.SqLite
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("Amount")
                         .HasPrecision(18, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("DateCreated")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("DateUpdated")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("DependantLineItemSku")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ExtendedData")
                         .IsRequired()
                         .HasMaxLength(3000)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(3000)");
 
                     b.Property<Guid?>("InvoiceId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("IsTaxable")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<int>("LineItemType")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<string>("Name")
                         .HasMaxLength(500)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<Guid?>("OrderId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal?>("OriginalAmount")
                         .HasPrecision(18, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<Guid?>("ProductId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("Quantity")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<string>("Sku")
                         .HasMaxLength(100)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<decimal>("TaxRate")
                         .HasPrecision(5, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(5,2)");
 
                     b.HasKey("Id");
 
@@ -138,60 +188,60 @@ namespace Merchello.Core.Data.Migrations.SqLite
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("CancellationReason")
                         .HasMaxLength(1000)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<DateTime?>("CancelledDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("CompletedDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("DateCreated")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("DateUpdated")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<decimal?>("DeliveryDateSurcharge")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("InternalNotes")
                         .HasMaxLength(2000)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(2000)");
 
                     b.Property<Guid>("InvoiceId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<bool?>("IsDeliveryDateGuaranteed")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<DateTime?>("ProcessingStartedDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("RequestedDeliveryDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("ShippedDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<decimal>("ShippingCost")
                         .HasPrecision(18, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<Guid>("ShippingOptionId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("Status")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("int")
                         .HasDefaultValue(0);
 
                     b.Property<Guid>("WarehouseId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
@@ -204,36 +254,36 @@ namespace Merchello.Core.Data.Migrations.SqLite
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("Amount")
                         .HasPrecision(18, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("DateCreated")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Description")
                         .HasMaxLength(1000)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("FraudResponse")
                         .HasMaxLength(500)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<Guid>("InvoiceId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("PaymentMethod")
                         .HasMaxLength(350)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(350)");
 
                     b.Property<bool>("PaymentSuccess")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<string>("TransactionId")
                         .HasMaxLength(350)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(350)");
 
                     b.HasKey("Id");
 
@@ -246,21 +296,21 @@ namespace Merchello.Core.Data.Migrations.SqLite
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("DateCreated")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("DateUpdated")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Name")
                         .HasMaxLength(300)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(300)");
 
                     b.Property<decimal>("TaxPercentage")
                         .HasPrecision(5, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(5,2)");
 
                     b.HasKey("Id");
 
@@ -271,71 +321,71 @@ namespace Merchello.Core.Data.Migrations.SqLite
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("AdjustedSubTotal")
                         .HasPrecision(18, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("Adjustments")
                         .IsRequired()
                         .HasMaxLength(3000)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(3000)");
 
                     b.Property<string>("BillingAddress")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("Currency")
                         .HasMaxLength(10)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(10)");
 
                     b.Property<string>("CurrencySymbol")
                         .HasMaxLength(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(3)");
 
                     b.Property<Guid?>("CustomerId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("DateCreated")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("DateUpdated")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<decimal>("Discount")
                         .HasPrecision(18, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("LineItems")
                         .IsRequired()
                         .HasMaxLength(3000)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(3000)");
 
                     b.Property<decimal>("Shipping")
                         .HasPrecision(18, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("ShippingAddress")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<decimal>("SubTotal")
                         .HasPrecision(18, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("Tax")
                         .HasPrecision(18, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("TaxRounding")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<decimal>("Total")
                         .HasPrecision(18, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");
 
@@ -346,122 +396,122 @@ namespace Merchello.Core.Data.Migrations.SqLite
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("AvailableForPurchase")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("CanPurchase")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<decimal>("CostOfGoods")
                         .HasPrecision(18, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("DateCreated")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("DateUpdated")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<bool>("Default")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<string>("Description")
                         .HasMaxLength(5000)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("ExcludeFromCustomLabels")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("ExcludeRootProductImages")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<string>("Gtin")
                         .HasMaxLength(150)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(150)");
 
                     b.Property<string>("Images")
                         .IsRequired()
                         .HasMaxLength(1000)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("MetaDescription")
                         .HasMaxLength(200)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<bool>("NoIndex")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("OnSale")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<string>("OpenGraphImage")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PageTitle")
                         .HasMaxLength(100)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<decimal?>("PreviousPrice")
                         .HasPrecision(18, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("Price")
                         .HasPrecision(18, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<Guid>("ProductRootId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("RemoveFromFeed")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<int>("ShippingRestrictionMode")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("int")
                         .HasDefaultValue(0);
 
                     b.Property<string>("ShoppingFeedColour")
                         .HasMaxLength(100)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("ShoppingFeedDescription")
                         .HasMaxLength(100)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("ShoppingFeedMaterial")
                         .HasMaxLength(100)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("ShoppingFeedSize")
                         .HasMaxLength(100)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("ShoppingFeedTitle")
                         .HasMaxLength(200)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("Sku")
                         .HasMaxLength(150)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(150)");
 
                     b.Property<string>("SupplierSku")
                         .HasMaxLength(150)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(150)");
 
                     b.Property<string>("Url")
                         .HasMaxLength(1000)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("VariantOptionsKey")
                         .HasMaxLength(1500)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(1500)");
 
                     b.HasKey("Id");
 
@@ -476,12 +526,12 @@ namespace Merchello.Core.Data.Migrations.SqLite
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(500)");
 
                     b.HasKey("Id");
 
@@ -492,26 +542,26 @@ namespace Merchello.Core.Data.Migrations.SqLite
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("HexColour")
                         .IsRequired()
                         .HasMaxLength(150)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(150)");
 
                     b.Property<Guid?>("Image")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<Guid>("ProductFilterGroupId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("SortOrder")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -524,15 +574,15 @@ namespace Merchello.Core.Data.Migrations.SqLite
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<int>("SortOrder")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -543,52 +593,52 @@ namespace Merchello.Core.Data.Migrations.SqLite
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("GoogleShoppingFeedCategory")
                         .HasMaxLength(1000)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("HsCode")
                         .HasMaxLength(10)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(10)");
 
                     b.Property<string>("ProductOptions")
                         .IsRequired()
                         .HasMaxLength(3000)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(3000)");
 
                     b.Property<Guid>("ProductTypeId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("RootImages")
                         .IsRequired()
                         .HasMaxLength(3000)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(3000)");
 
                     b.Property<string>("RootName")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("RootUrl")
                         .HasMaxLength(1000)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("SellingPoints")
                         .IsRequired()
                         .HasMaxLength(1500)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(1500)");
 
                     b.Property<Guid>("TaxGroupId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Videos")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<decimal>("Weight")
                         .HasPrecision(10, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(10,2)");
 
                     b.HasKey("Id");
 
@@ -602,13 +652,13 @@ namespace Merchello.Core.Data.Migrations.SqLite
             modelBuilder.Entity("Merchello.Core.Products.Models.ProductRootWarehouse", b =>
                 {
                     b.Property<Guid>("ProductRootId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("WarehouseId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("PriorityOrder")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.HasKey("ProductRootId", "WarehouseId");
 
@@ -621,13 +671,13 @@ namespace Merchello.Core.Data.Migrations.SqLite
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Alias")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Name")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -637,28 +687,28 @@ namespace Merchello.Core.Data.Migrations.SqLite
             modelBuilder.Entity("Merchello.Core.Products.Models.ProductWarehouse", b =>
                 {
                     b.Property<Guid>("ProductId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("WarehouseId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int?>("ReorderPoint")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<int?>("ReorderQuantity")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<int>("ReservedStock")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("int")
                         .HasDefaultValue(0);
 
                     b.Property<int>("Stock")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<bool>("TrackStock")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("bit")
                         .HasDefaultValue(true);
 
                     b.HasKey("ProductId", "WarehouseId");
@@ -672,19 +722,19 @@ namespace Merchello.Core.Data.Migrations.SqLite
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal?>("CostOfGoods")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal?>("Price")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<Guid>("ProductId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("WarehouseId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
@@ -699,44 +749,44 @@ namespace Merchello.Core.Data.Migrations.SqLite
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime?>("ActualDeliveryDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Address")
                         .IsRequired()
                         .HasMaxLength(1500)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(1500)");
 
                     b.Property<string>("Carrier")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid>("CourierId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<bool?>("IsDeliveryDateGuaranteed")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<string>("LineItems")
                         .IsRequired()
                         .HasMaxLength(3000)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(3000)");
 
                     b.Property<Guid>("OrderId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime?>("RequestedDeliveryDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<Guid>("SupplierId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("TrackingNumber")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("TrackingUrl")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -751,7 +801,7 @@ namespace Merchello.Core.Data.Migrations.SqLite
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("Cost")
                         .HasColumnType("decimal(18,2)");
@@ -759,14 +809,14 @@ namespace Merchello.Core.Data.Migrations.SqLite
                     b.Property<string>("CountryCode")
                         .IsRequired()
                         .HasMaxLength(10)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(10)");
 
                     b.Property<Guid>("ShippingOptionId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("StateOrProvinceCode")
                         .HasMaxLength(50)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(50)");
 
                     b.HasKey("Id");
 
@@ -779,58 +829,58 @@ namespace Merchello.Core.Data.Migrations.SqLite
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("AllowedDaysOfWeek")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("AllowsDeliveryDateSelection")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<string>("CalculationMethod")
                         .HasMaxLength(1500)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(1500)");
 
                     b.Property<DateTime>("CreateDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("DaysFrom")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<int>("DaysTo")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<string>("DeliveryDatePricingMethod")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal?>("FixedCost")
                         .HasPrecision(18, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<bool>("IsDeliveryDateGuaranteed")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsNextDay")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<int?>("MaxDeliveryDays")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<int?>("MinDeliveryDays")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<string>("Name")
                         .HasMaxLength(350)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(350)");
 
                     b.Property<TimeSpan?>("NextDayCutOffTime")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("time");
 
                     b.Property<DateTime>("UpdateDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<Guid>("WarehouseId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
@@ -842,11 +892,11 @@ namespace Merchello.Core.Data.Migrations.SqLite
             modelBuilder.Entity("Merchello.Core.Shipping.Models.ShippingOptionCountry", b =>
                 {
                     b.Property<Guid>("ShippingOptionId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("CountryCode")
                         .HasMaxLength(10)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(10)");
 
                     b.HasKey("ShippingOptionId", "CountryCode");
 
@@ -857,29 +907,29 @@ namespace Merchello.Core.Data.Migrations.SqLite
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreateDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("DisplayName")
                         .HasMaxLength(256)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(256)");
 
                     b.Property<bool>("IsEnabled")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<string>("ProviderKey")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(256)");
 
                     b.Property<string>("SettingsJson")
                         .HasMaxLength(4000)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(4000)");
 
                     b.Property<DateTime>("UpdateDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
@@ -890,34 +940,34 @@ namespace Merchello.Core.Data.Migrations.SqLite
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Address")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("AutomationMethod")
                         .HasMaxLength(1000)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("Code")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("DateCreated")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("DateUpdated")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("ExtendedData")
                         .IsRequired()
                         .HasMaxLength(1000)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("Name")
                         .HasMaxLength(250)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(250)");
 
                     b.HasKey("Id");
 
@@ -928,22 +978,22 @@ namespace Merchello.Core.Data.Migrations.SqLite
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("CountryCode")
                         .IsRequired()
                         .HasMaxLength(10)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(10)");
 
                     b.Property<bool>("IsExcluded")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<string>("StateOrProvinceCode")
                         .HasMaxLength(50)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<Guid>("WarehouseId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
@@ -952,58 +1002,13 @@ namespace Merchello.Core.Data.Migrations.SqLite
                     b.ToTable("MerchWarehouseServiceRegions", (string)null);
                 });
 
-            modelBuilder.Entity("MerchProductFiltersProducts", b =>
-                {
-                    b.Property<Guid>("FilterId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("ProductId")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("FilterId", "ProductId");
-
-                    b.HasIndex("ProductId");
-
-                    b.ToTable("MerchProductFiltersProducts");
-                });
-
-            modelBuilder.Entity("MerchProductRootCategories", b =>
-                {
-                    b.Property<Guid>("CategoryId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("ProductRootId")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("CategoryId", "ProductRootId");
-
-                    b.HasIndex("ProductRootId");
-
-                    b.ToTable("MerchProductRootCategories");
-                });
-
-            modelBuilder.Entity("MerchProductRootShippingOptions", b =>
-                {
-                    b.Property<Guid>("ProductRootId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("ShippingOptionId")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("ProductRootId", "ShippingOptionId");
-
-                    b.HasIndex("ShippingOptionId");
-
-                    b.ToTable("MerchProductRootShippingOptions");
-                });
-
             modelBuilder.Entity("ProductShippingOption", b =>
                 {
                     b.Property<Guid>("AllowedShippingOptionsId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("ProductId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("AllowedShippingOptionsId", "ProductId");
 
@@ -1015,16 +1020,61 @@ namespace Merchello.Core.Data.Migrations.SqLite
             modelBuilder.Entity("ProductShippingOption1", b =>
                 {
                     b.Property<Guid>("ExcludedShippingOptionsId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("Product1Id")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("ExcludedShippingOptionsId", "Product1Id");
 
                     b.HasIndex("Product1Id");
 
                     b.ToTable("MerchProductExcludedShippingOptions", (string)null);
+                });
+
+            modelBuilder.Entity("MerchProductFiltersProducts", b =>
+                {
+                    b.HasOne("Merchello.Core.Products.Models.ProductFilter", null)
+                        .WithMany()
+                        .HasForeignKey("FilterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Merchello.Core.Products.Models.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MerchProductRootCategories", b =>
+                {
+                    b.HasOne("Merchello.Core.Products.Models.ProductCategory", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Merchello.Core.Products.Models.ProductRoot", null)
+                        .WithMany()
+                        .HasForeignKey("ProductRootId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MerchProductRootShippingOptions", b =>
+                {
+                    b.HasOne("Merchello.Core.Products.Models.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductRootId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Merchello.Core.Shipping.Models.ShippingOption", null)
+                        .WithMany()
+                        .HasForeignKey("ShippingOptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Merchello.Core.Accounting.Models.LineItem", b =>
@@ -1054,37 +1104,37 @@ namespace Merchello.Core.Data.Migrations.SqLite
                     b.OwnsOne("Merchello.Core.Locality.Models.Address", "ShippingAddress", b1 =>
                         {
                             b1.Property<Guid>("OrderId")
-                                .HasColumnType("TEXT");
+                                .HasColumnType("uniqueidentifier");
 
                             b1.Property<string>("AddressOne")
-                                .HasColumnType("TEXT");
+                                .HasColumnType("nvarchar(max)");
 
                             b1.Property<string>("AddressTwo")
-                                .HasColumnType("TEXT");
+                                .HasColumnType("nvarchar(max)");
 
                             b1.Property<string>("Company")
-                                .HasColumnType("TEXT");
+                                .HasColumnType("nvarchar(max)");
 
                             b1.Property<string>("Country")
-                                .HasColumnType("TEXT");
+                                .HasColumnType("nvarchar(max)");
 
                             b1.Property<string>("CountryCode")
-                                .HasColumnType("TEXT");
+                                .HasColumnType("nvarchar(max)");
 
                             b1.Property<string>("Email")
-                                .HasColumnType("TEXT");
+                                .HasColumnType("nvarchar(max)");
 
                             b1.Property<string>("Name")
-                                .HasColumnType("TEXT");
+                                .HasColumnType("nvarchar(max)");
 
                             b1.Property<string>("Phone")
-                                .HasColumnType("TEXT");
+                                .HasColumnType("nvarchar(max)");
 
                             b1.Property<string>("PostalCode")
-                                .HasColumnType("TEXT");
+                                .HasColumnType("nvarchar(max)");
 
                             b1.Property<string>("TownCity")
-                                .HasColumnType("TEXT");
+                                .HasColumnType("nvarchar(max)");
 
                             b1.HasKey("OrderId");
 
@@ -1096,13 +1146,13 @@ namespace Merchello.Core.Data.Migrations.SqLite
                             b1.OwnsOne("Merchello.Core.Locality.Models.CountyState", "CountyState", b2 =>
                                 {
                                     b2.Property<Guid>("AddressOrderId")
-                                        .HasColumnType("TEXT");
+                                        .HasColumnType("uniqueidentifier");
 
                                     b2.Property<string>("Name")
-                                        .HasColumnType("TEXT");
+                                        .HasColumnType("nvarchar(max)");
 
                                     b2.Property<string>("RegionCode")
-                                        .HasColumnType("TEXT");
+                                        .HasColumnType("nvarchar(max)");
 
                                     b2.HasKey("AddressOrderId");
 
@@ -1112,7 +1162,8 @@ namespace Merchello.Core.Data.Migrations.SqLite
                                         .HasForeignKey("AddressOrderId");
                                 });
 
-                            b1.Navigation("CountyState");
+                            b1.Navigation("CountyState")
+                                .IsRequired();
                         });
 
                     b.Navigation("Invoice");
@@ -1282,16 +1333,16 @@ namespace Merchello.Core.Data.Migrations.SqLite
                     b.OwnsOne("Merchello.Core.Locality.Models.Country", "Country", b1 =>
                         {
                             b1.Property<Guid>("ShippingOptionCountryShippingOptionId")
-                                .HasColumnType("TEXT");
+                                .HasColumnType("uniqueidentifier");
 
                             b1.Property<string>("ShippingOptionCountryCountryCode")
-                                .HasColumnType("TEXT");
+                                .HasColumnType("nvarchar(10)");
 
                             b1.Property<string>("CountryCode")
-                                .HasColumnType("TEXT");
+                                .HasColumnType("nvarchar(max)");
 
                             b1.Property<string>("Name")
-                                .HasColumnType("TEXT");
+                                .HasColumnType("nvarchar(max)");
 
                             b1.HasKey("ShippingOptionCountryShippingOptionId", "ShippingOptionCountryCountryCode");
 
@@ -1303,20 +1354,22 @@ namespace Merchello.Core.Data.Migrations.SqLite
                             b1.OwnsMany("Merchello.Core.Locality.Models.CountyState", "CountyStates", b2 =>
                                 {
                                     b2.Property<Guid>("CountryShippingOptionCountryShippingOptionId")
-                                        .HasColumnType("TEXT");
+                                        .HasColumnType("uniqueidentifier");
 
                                     b2.Property<string>("CountryShippingOptionCountryCountryCode")
-                                        .HasColumnType("TEXT");
+                                        .HasColumnType("nvarchar(10)");
 
                                     b2.Property<int>("Id")
                                         .ValueGeneratedOnAdd()
-                                        .HasColumnType("INTEGER");
+                                        .HasColumnType("int");
+
+                                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b2.Property<int>("Id"));
 
                                     b2.Property<string>("Name")
-                                        .HasColumnType("TEXT");
+                                        .HasColumnType("nvarchar(max)");
 
                                     b2.Property<string>("RegionCode")
-                                        .HasColumnType("TEXT");
+                                        .HasColumnType("nvarchar(max)");
 
                                     b2.HasKey("CountryShippingOptionCountryShippingOptionId", "CountryShippingOptionCountryCountryCode", "Id");
 
@@ -1344,51 +1397,6 @@ namespace Merchello.Core.Data.Migrations.SqLite
                         .IsRequired();
 
                     b.Navigation("Warehouse");
-                });
-
-            modelBuilder.Entity("MerchProductFiltersProducts", b =>
-                {
-                    b.HasOne("Merchello.Core.Products.Models.ProductFilter", null)
-                        .WithMany()
-                        .HasForeignKey("FilterId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Merchello.Core.Products.Models.Product", null)
-                        .WithMany()
-                        .HasForeignKey("ProductId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("MerchProductRootCategories", b =>
-                {
-                    b.HasOne("Merchello.Core.Products.Models.ProductCategory", null)
-                        .WithMany()
-                        .HasForeignKey("CategoryId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Merchello.Core.Products.Models.ProductRoot", null)
-                        .WithMany()
-                        .HasForeignKey("ProductRootId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("MerchProductRootShippingOptions", b =>
-                {
-                    b.HasOne("Merchello.Core.Products.Models.Product", null)
-                        .WithMany()
-                        .HasForeignKey("ProductRootId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Merchello.Core.Shipping.Models.ShippingOption", null)
-                        .WithMany()
-                        .HasForeignKey("ShippingOptionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("ProductShippingOption", b =>

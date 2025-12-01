@@ -126,6 +126,11 @@ l.styles = [
       uui-table {
         width: 100%;
       }
+
+      uui-badge {
+        vertical-align: middle;
+        --uui-badge-inset: 0;
+      }
     `
 ];
 l = h([
@@ -136,4 +141,4 @@ export {
   l as MerchelloStatsDashboardElement,
   p as default
 };
-//# sourceMappingURL=stats-dashboard.element-B-Bd-M_N.js.map
+//# sourceMappingURL=stats-dashboard.element-7jJDUUSr.js.map

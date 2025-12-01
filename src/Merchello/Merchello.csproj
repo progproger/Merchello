@@ -27,6 +27,14 @@
     <PackageReference Include="Umbraco.Cms.Web.Common" Version="*" />
     <PackageReference Include="Umbraco.Cms.Api.Common" Version="*" />
     <PackageReference Include="Umbraco.Cms.Api.Management" Version="*" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Merchello.Core\Merchello.Core.csproj" />
   </ItemGroup>
   
   <ItemGroup>

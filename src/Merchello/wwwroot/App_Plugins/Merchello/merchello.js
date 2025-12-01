@@ -68,7 +68,7 @@ const e = [
     type: "dashboard",
     alias: "Merchello.Dashboard.Stats",
     name: "Merchello Stats Dashboard",
-    element: () => import("./stats-dashboard.element-B-Bd-M_N.js"),
+    element: () => import("./stats-dashboard.element-7jJDUUSr.js"),
     meta: {
       label: "Stats",
       pathname: "stats"

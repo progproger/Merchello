@@ -26,7 +26,7 @@ public class TaxGroup
     /// <summary>
     /// Products this supplier supplies
     /// </summary>
-    public virtual ICollection<ProductRoot> Products { get; set; } = new HashSet<ProductRoot>();
+    public virtual ICollection<ProductRoot> Products { get; set; } = [];
 
     /// <summary>
     /// Update date

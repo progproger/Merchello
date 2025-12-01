@@ -5,18 +5,20 @@ using Merchello.Core.Products.Models;
 using Merchello.Core.Shipping.Models;
 using Merchello.Core.Warehouses.Models;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.Extensions.Configuration;
 
 namespace Merchello.Core.Data;
 
-public abstract class MerchDbContextBase(DbContextOptions options, IConfiguration configuration)
-    : DbContext(options)
+/// <summary>
+/// Merchello database context - uses Umbraco's database provider automatically
+/// </summary>
+public class MerchelloDbContext : DbContext
 {
-    // ReSharper disable once UnusedMember.Local
-    private readonly IConfiguration _configuration = configuration;
+    public MerchelloDbContext(DbContextOptions<MerchelloDbContext> options)
+        : base(options)
+    {
+    }
 
-    // All DbSets
+    // Product DbSets
     public DbSet<ProductRoot> RootProducts => Set<ProductRoot>();
     public DbSet<Product> Products => Set<Product>();
     public DbSet<ProductCategory> ProductCategories => Set<ProductCategory>();
@@ -25,26 +27,29 @@ public abstract class MerchDbContextBase(DbContextOptions options, IConfiguratio
     public DbSet<ProductType> ProductTypes => Set<ProductType>();
     public DbSet<ProductWarehouse> ProductWarehouses => Set<ProductWarehouse>();
     public DbSet<ProductRootWarehouse> ProductRootWarehouses => Set<ProductRootWarehouse>();
+
+    // Checkout DbSets
     public DbSet<Basket> Baskets => Set<Basket>();
+
+    // Warehouse DbSets
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
+    public DbSet<WarehouseServiceRegion> WarehouseServiceRegions => Set<WarehouseServiceRegion>();
+
+    // Accounting DbSets
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<LineItem> LineItems => Set<LineItem>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<Payment> Payments => Set<Payment>();
-    public DbSet<Shipment> Shipments => Set<Shipment>();
     public DbSet<TaxGroup> TaxGroups => Set<TaxGroup>();
+
+    // Shipping DbSets
+    public DbSet<Shipment> Shipments => Set<Shipment>();
     public DbSet<ShippingOption> ShippingOptions => Set<ShippingOption>();
     public DbSet<ShippingProviderConfiguration> ShippingProviderConfigurations => Set<ShippingProviderConfiguration>();
-    public DbSet<WarehouseServiceRegion> WarehouseServiceRegions => Set<WarehouseServiceRegion>();
 
-    // Common OnModelCreating code
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
     }
-
-    public new DatabaseFacade Database => base.Database;
 }
-

@@ -19,7 +19,7 @@ public static class ProductServiceDbSeedExtensions
     /// Adds the product to the context but does NOT save - caller must call SaveChangesAsync.
     /// </summary>
     public static CrudResult<ProductRoot> CreateProductRootWithVariants(
-        this IMerchDbContext context,
+        this MerchelloDbContext context,
         ProductFactory productFactory,
         string name,
         string? description,
@@ -213,7 +213,7 @@ public static class ProductServiceDbSeedExtensions
 
     private static string BuildVariantName(string rootName, string color, string size)
     {
-        var parts = new List<string> { rootName };
+        List<string> parts = [rootName];
         if (color != "Default") parts.Add(color);
         if (size != "Default") parts.Add(size);
         return string.Join(" - ", parts);
@@ -222,7 +222,7 @@ public static class ProductServiceDbSeedExtensions
     private static string GenerateSku(string rootName, string color, string size)
     {
         var prefix = rootName.Substring(0, Math.Min(3, rootName.Length)).ToUpper();
-        var parts = new List<string> { "PRD", prefix };
+        List<string> parts = ["PRD", prefix];
 
         if (color != "Default")
             parts.Add(color.Substring(0, Math.Min(3, color.Length)).ToUpper());

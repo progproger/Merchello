@@ -6,6 +6,7 @@ using Merchello.Core.Data;
 using Merchello.Core.Shared.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Umbraco.Cms.Persistence.EFCore.Scoping;
 
 namespace Merchello.Core.Shipping.Providers;
 
@@ -15,17 +16,17 @@ namespace Merchello.Core.Shipping.Providers;
 public class ShippingProviderManager : IShippingProviderManager
 {
     private readonly ExtensionManager _extensionManager;
-    private readonly IMerchDbContext _dbContext;
+    private readonly IEFCoreScopeProvider<MerchelloDbContext> _efCoreScopeProvider;
     private readonly ILogger<ShippingProviderManager> _logger;
     private IReadOnlyCollection<RegisteredShippingProvider>? _cachedProviders;
 
     public ShippingProviderManager(
         ExtensionManager extensionManager,
-        IMerchDbContext dbContext,
+        IEFCoreScopeProvider<MerchelloDbContext> efCoreScopeProvider,
         ILogger<ShippingProviderManager> logger)
     {
         _extensionManager = extensionManager;
-        _dbContext = dbContext;
+        _efCoreScopeProvider = efCoreScopeProvider;
         _logger = logger;
     }
 
@@ -41,12 +42,15 @@ public class ShippingProviderManager : IShippingProviderManager
             .Cast<IShippingProvider>()
             .ToList();
 
-        var configurations = await _dbContext.ShippingProviderConfigurations
-            .AsNoTracking()
-            .ToListAsync(cancellationToken);
+        using var scope = _efCoreScopeProvider.CreateScope();
+        var configurations = await scope.ExecuteWithContextAsync(async db =>
+            await db.ShippingProviderConfigurations
+                .AsNoTracking()
+                .ToListAsync(cancellationToken));
+        scope.Complete();
 
-        var registeredProviders = new List<RegisteredShippingProvider>();
-        var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        List<RegisteredShippingProvider> registeredProviders = [];
+        HashSet<string> keys = new(StringComparer.OrdinalIgnoreCase);
 
         foreach (var provider in providerInstances)
         {

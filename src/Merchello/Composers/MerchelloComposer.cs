@@ -1,4 +1,6 @@
 using Asp.Versioning;
+using Merchello.Core;
+using Merchello.Core.Data;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.Options;
@@ -7,15 +9,21 @@ using Microsoft.OpenApi;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using Umbraco.Cms.Core.Composing;
 using Umbraco.Cms.Core.DependencyInjection;
+using Umbraco.Cms.Core.Notifications;
 using Umbraco.Cms.Api.Management.OpenApi;
 using Umbraco.Cms.Api.Common.OpenApi;
 
 namespace Merchello.Composers
 {
-    public class MerchelloApiComposer : IComposer
+    public class MerchelloComposer : IComposer
     {
         public void Compose(IUmbracoBuilder builder)
         {
+            // Register all Merchello services, DbContext, and dependencies
+            builder.AddMerch();
+
+            // Register Merchello EF Core migration handler
+            builder.AddNotificationAsyncHandler<UmbracoApplicationStartedNotification, RunMerchMigration>();
 
             builder.Services.AddSingleton<IOperationIdHandler, CustomOperationHandler>();
 

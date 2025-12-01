@@ -3,24 +3,30 @@ using Merchello.Core.Accounting.Services.Interfaces;
 using Merchello.Core.Data;
 using Merchello.Core.Shared.Extensions;
 using Merchello.Core.Shared.Models;
-using Merchello.Core.Products.ExtensionMethods;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Umbraco.Cms.Persistence.EFCore.Scoping;
 
 namespace Merchello.Core.Accounting.Services;
 
 public class TaxService(
-    IMerchDbContext dbContext,
+    IEFCoreScopeProvider<MerchelloDbContext> efCoreScopeProvider,
     ILogger<TaxService> logger) : ITaxService
 {
+    private readonly IEFCoreScopeProvider<MerchelloDbContext> _efCoreScopeProvider = efCoreScopeProvider;
+
     /// <summary>
     /// Gets all tax groups
     /// </summary>
     public async Task<List<TaxGroup>> GetTaxGroups(CancellationToken cancellationToken = default)
     {
-        return await dbContext.TaxGroups
-            .OrderBy(tg => tg.Name)
-            .ToListAsync(cancellationToken);
+        using var scope = _efCoreScopeProvider.CreateScope();
+        var result = await scope.ExecuteWithContextAsync(async db =>
+            await db.TaxGroups
+                .OrderBy(tg => tg.Name)
+                .ToListAsync(cancellationToken));
+        scope.Complete();
+        return result;
     }
 
     /// <summary>
@@ -28,8 +34,12 @@ public class TaxService(
     /// </summary>
     public async Task<TaxGroup?> GetTaxGroup(Guid taxGroupId, CancellationToken cancellationToken = default)
     {
-        return await dbContext.TaxGroups
-            .FirstOrDefaultAsync(tg => tg.Id == taxGroupId, cancellationToken);
+        using var scope = _efCoreScopeProvider.CreateScope();
+        var result = await scope.ExecuteWithContextAsync(async db =>
+            await db.TaxGroups
+                .FirstOrDefaultAsync(tg => tg.Id == taxGroupId, cancellationToken));
+        scope.Complete();
+        return result;
     }
 
     /// <summary>
@@ -56,8 +66,13 @@ public class TaxService(
             TaxPercentage = rate
         };
 
-        dbContext.TaxGroups.Add(taxGroup);
-        await dbContext.SaveChangesAsyncLogged(logger, result, cancellationToken);
+        using var scope = _efCoreScopeProvider.CreateScope();
+        await scope.ExecuteWithContextAsync<Task>(async db =>
+        {
+            db.TaxGroups.Add(taxGroup);
+            await db.SaveChangesAsyncLogged(logger, result, cancellationToken);
+        });
+        scope.Complete();
 
         result.ResultObject = taxGroup;
         return result;
@@ -72,28 +87,34 @@ public class TaxService(
     {
         var result = new CrudResult<TaxGroup>();
 
-        var existing = await dbContext.TaxGroups
-            .FirstOrDefaultAsync(tg => tg.Id == taxGroup.Id, cancellationToken);
-
-        if (existing == null)
+        using var scope = _efCoreScopeProvider.CreateScope();
+        await scope.ExecuteWithContextAsync<Task>(async db =>
         {
-            result.AddErrorMessage("Tax group not found");
-            return result;
-        }
+            var existing = await db.TaxGroups
+                .FirstOrDefaultAsync(tg => tg.Id == taxGroup.Id, cancellationToken);
 
-        // Validate rate
-        if (taxGroup.TaxPercentage < 0 || taxGroup.TaxPercentage > 100)
-        {
-            result.AddErrorMessage("Tax rate must be between 0 and 100");
-            return result;
-        }
+            if (existing == null)
+            {
+                result.AddErrorMessage("Tax group not found");
+                return;
+            }
 
-        existing.Name = taxGroup.Name;
-        existing.TaxPercentage = taxGroup.TaxPercentage;
+            // Validate rate
+            if (taxGroup.TaxPercentage < 0 || taxGroup.TaxPercentage > 100)
+            {
+                result.AddErrorMessage("Tax rate must be between 0 and 100");
+                return;
+            }
 
-        await dbContext.SaveChangesAsyncLogged(logger, result, cancellationToken);
+            existing.Name = taxGroup.Name;
+            existing.TaxPercentage = taxGroup.TaxPercentage;
 
-        result.ResultObject = existing;
+            await db.SaveChangesAsyncLogged(logger, result, cancellationToken);
+
+            result.ResultObject = existing;
+        });
+        scope.Complete();
+
         return result;
     }
 
@@ -106,30 +127,35 @@ public class TaxService(
     {
         var result = new CrudResult<bool>();
 
-        var taxGroup = await dbContext.TaxGroups
-            .FirstOrDefaultAsync(tg => tg.Id == taxGroupId, cancellationToken);
-
-        if (taxGroup == null)
+        using var scope = _efCoreScopeProvider.CreateScope();
+        await scope.ExecuteWithContextAsync<Task>(async db =>
         {
-            result.AddErrorMessage("Tax group not found");
-            return result;
-        }
+            var taxGroup = await db.TaxGroups
+                .FirstOrDefaultAsync(tg => tg.Id == taxGroupId, cancellationToken);
 
-        // Check if tax group is in use
-        var productsUsingTaxGroup = await dbContext.RootProducts
-            .AnyAsync(p => p.TaxGroupId == taxGroupId, cancellationToken);
+            if (taxGroup == null)
+            {
+                result.AddErrorMessage("Tax group not found");
+                return;
+            }
 
-        if (productsUsingTaxGroup)
-        {
-            result.AddErrorMessage("Cannot delete tax group - it is in use by products");
-            return result;
-        }
+            // Check if tax group is in use
+            var productsUsingTaxGroup = await db.RootProducts
+                .AnyAsync(p => p.TaxGroupId == taxGroupId, cancellationToken);
 
-        dbContext.TaxGroups.Remove(taxGroup);
-        await dbContext.SaveChangesAsyncLogged(logger, result, cancellationToken);
+            if (productsUsingTaxGroup)
+            {
+                result.AddErrorMessage("Cannot delete tax group - it is in use by products");
+                return;
+            }
 
-        result.ResultObject = true;
+            db.TaxGroups.Remove(taxGroup);
+            await db.SaveChangesAsyncLogged(logger, result, cancellationToken);
+
+            result.ResultObject = true;
+        });
+        scope.Complete();
+
         return result;
     }
 }
-

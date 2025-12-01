@@ -8,23 +8,27 @@ using Merchello.Core.Locality.Services.Interfaces;
 using Merchello.Core.Warehouses.Services.Interfaces;
 using Merchello.Core.Warehouses.Services.Models;
 using Microsoft.EntityFrameworkCore;
+using Umbraco.Cms.Persistence.EFCore.Scoping;
 
 namespace Merchello.Core.Warehouses.Services;
 
-public class LocationsService(IMerchDbContext db, ILocalityCatalog catalog) : ILocationsService
+public class LocationsService(IEFCoreScopeProvider<MerchelloDbContext> efCoreScopeProvider, ILocalityCatalog catalog) : ILocationsService
 {
-    private readonly IMerchDbContext _db = db;
+    private readonly IEFCoreScopeProvider<MerchelloDbContext> _efCoreScopeProvider = efCoreScopeProvider;
     private readonly ILocalityCatalog _catalog = catalog;
 
     public async Task<IReadOnlyCollection<CountryAvailability>> GetAvailableCountriesAsync(CancellationToken ct = default)
     {
-        var warehouses = await _db.Warehouses
-            .AsNoTracking()
-            .Include(w => w.ServiceRegions)
-            .ToListAsync(ct);
+        using var scope = _efCoreScopeProvider.CreateScope();
+        var warehouses = await scope.ExecuteWithContextAsync(async db =>
+            await db.Warehouses
+                .AsNoTracking()
+                .Include(w => w.ServiceRegions)
+                .ToListAsync(ct));
+        scope.Complete();
 
-        var included = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var excluded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> included = new(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> excluded = new(StringComparer.OrdinalIgnoreCase);
         var hasWildcardInclude = false;
 
         foreach (var w in warehouses)
@@ -122,16 +126,19 @@ public class LocationsService(IMerchDbContext db, ILocalityCatalog catalog) : IL
             return Array.Empty<RegionAvailability>();
         }
 
-        var warehouses = await _db.Warehouses
-            .AsNoTracking()
-            .Include(w => w.ServiceRegions)
-            .ToListAsync(ct);
+        using var scope = _efCoreScopeProvider.CreateScope();
+        var warehouses = await scope.ExecuteWithContextAsync(async db =>
+            await db.Warehouses
+                .AsNoTracking()
+                .Include(w => w.ServiceRegions)
+                .ToListAsync(ct));
+        scope.Complete();
 
         // Collect rules applicable to this country (including wildcard '*')
         var includeAll = false; // default allow-all
         var excludeAll = false; // default deny-all
-        var include = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var exclude = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> include = new(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> exclude = new(StringComparer.OrdinalIgnoreCase);
 
         foreach (var w in warehouses)
         {

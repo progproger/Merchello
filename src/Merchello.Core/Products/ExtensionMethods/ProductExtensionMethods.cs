@@ -169,46 +169,13 @@ public static class ProductExtensionMethods
 
 
     /// <summary>
-    /// Adds a warning message to the handler result
-    /// </summary>
-    /// <param name="result"></param>
-    /// <param name="message"></param>
-    /// <typeparam name="T"></typeparam>
-    public static void AddWarningMessage<T>(this CrudResult<T> result, string message)
-    {
-        result.Messages.Add(new ResultMessage {Message = message, ResultMessageType = ResultMessageType.Warning});
-    }
-
-    /// <summary>
-    /// Adds and error message to the handler result
-    /// </summary>
-    /// <param name="result"></param>
-    /// <param name="message"></param>
-    /// <typeparam name="T"></typeparam>
-    public static void AddErrorMessage<T>(this CrudResult<T> result, string message)
-    {
-        result.Messages.Add(new ResultMessage {Message = message, ResultMessageType = ResultMessageType.Error});
-    }
-
-    /// <summary>
-    /// Adds a success message to the handler result
-    /// </summary>
-    /// <param name="result"></param>
-    /// <param name="message"></param>
-    /// <typeparam name="T"></typeparam>
-    public static void AddSuccessMessage<T>(this CrudResult<T> result, string message)
-    {
-        result.Messages.Add(new ResultMessage {Message = message, ResultMessageType = ResultMessageType.Success});
-    }
-
-    /// <summary>
     /// Creates variant ids from the cartesian product option values
     /// </summary>
     /// <param name="items"></param>
     /// <returns></returns>
     public static Dictionary<string, string> CreateVariantIds(this IEnumerable<IEnumerable<ProductOptionValue>> items)
     {
-        var variantIds = new Dictionary<string, string>();
+        Dictionary<string, string> variantIds = [];
         var optionItemLists = items as IEnumerable<ProductOptionValue>[] ?? items.ToArray();
         if (optionItemLists.Any())
         {

@@ -71,7 +71,7 @@ namespace Merchello.Core.Shared.Reflection
       if (useCaching && AssemblyManager.Types.ContainsKey(type))
         return AssemblyManager.Types[type];
 
-      var implementations = new List<Type>();
+      List<Type> implementations = [];
 
       foreach (var assembly in GetAssemblies(predicate))
         foreach (var exportedType in assembly?.GetExportedTypes()!)
@@ -96,7 +96,7 @@ namespace Merchello.Core.Shared.Reflection
     /// <returns>The instance of the first found implementation of the given type.</returns>
     public T? GetInstance<T>(bool useCaching = false)
     {
-      return GetInstance<T>(null, useCaching, new object[] { });
+      return GetInstance<T>(null, useCaching, []);
     }
 
     /// <summary>
@@ -161,7 +161,7 @@ namespace Merchello.Core.Shared.Reflection
     /// <returns>The instances of the found implementations of the given type.</returns>
     public IEnumerable<T?> GetInstances<T>(bool useCaching = false)
     {
-      return GetInstances<T>(null, useCaching, new object[] { });
+      return GetInstances<T>(null, useCaching, []);
     }
 
     /// <summary>
@@ -194,7 +194,7 @@ namespace Merchello.Core.Shared.Reflection
     /// <returns>The instances of the found implementations of the given type.</returns>
     public IEnumerable<T?> GetInstances<T>(Func<Assembly, bool>? predicate, bool useCaching = false)
     {
-      return GetInstances<T>(predicate, useCaching, new object[] { });
+      return GetInstances<T>(predicate, useCaching, []);
     }
 
     /// <summary>
@@ -212,7 +212,7 @@ namespace Merchello.Core.Shared.Reflection
     /// <returns>The instances of the found implementations of the given type.</returns>
     public IEnumerable<T?> GetInstances<T>(Func<Assembly, bool>? predicate, bool useCaching = false, params object[] args)
     {
-      var instances = new List<T?>();
+      List<T?> instances = [];
 
       foreach (var implementation in GetImplementations<T>(predicate, useCaching))
       {

@@ -12,17 +12,20 @@ using Merchello.Core.Shipping.Models;
 using Merchello.Core.Warehouses.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Umbraco.Cms.Persistence.EFCore.Scoping;
 
 namespace Merchello.Core.Products.Services;
 
 public class ProductService(
-    IMerchDbContext merchDbContext,
+    IEFCoreScopeProvider<MerchelloDbContext> efCoreScopeProvider,
     ProductRootFactory productRootFactory,
     ProductFactory productFactory,
     ProductOptionFactory productOptionFactory,
     SlugHelper slugHelper,
     ILogger<ProductService> logger) : IProductService
 {
+    private readonly IEFCoreScopeProvider<MerchelloDbContext> _efCoreScopeProvider = efCoreScopeProvider;
+
     /// <summary>
     /// Updates a product root
     /// </summary>
@@ -30,207 +33,204 @@ public class ProductService(
     /// <returns></returns>
     public async Task<CrudResult<ProductRoot>> Update(ProductRoot productRoot)
     {
-        // Clear any tracked entities
-        //_merchDbContext.ChangeTracker.Clear();
-
         var result = new CrudResult<ProductRoot>();
+        using var scope = _efCoreScopeProvider.CreateScope();
 
-        // First product root
-        // ReSharper disable once EntityFramework.NPlusOne.IncompleteDataQuery
-        var productRootDb = await merchDbContext.RootProducts
-            .Include(x => x.Categories)
-            .Include(x => x.ProductType)
-            .Include(x => x.ProductRootWarehouses)
-            .Include(x => x.TaxGroup)
-            .AsSplitQuery()
-            .FirstOrDefaultAsync(x => x.Id == productRoot.Id);
-
-        if (productRootDb == null)
+        await scope.ExecuteWithContextAsync<Task>(async db =>
         {
-            result.AddErrorMessage("Unable to find the product root with the same id");
-            return result;
-        }
+            // First product root
+            var productRootDb = await db.RootProducts
+                .Include(x => x.Categories)
+                .Include(x => x.ProductType)
+                .Include(x => x.ProductRootWarehouses)
+                .Include(x => x.TaxGroup)
+                .AsSplitQuery()
+                .FirstOrDefaultAsync(x => x.Id == productRoot.Id);
 
-        // If options are empty, check to see if the product DID have variants,
-        // if so, grab the first product as a template if request.Product is null
-        // Then delete the products and create a single default one
-        var products = merchDbContext.Products.Where(x => x.ProductRootId == productRoot.Id);
-        var productsCount = products.Count();
-
-        // Map the data from updated product root to db root (manual mapping)
-        productRootDb.CopyFrom(productRoot);
-
-        // Check for change of product type
-        if (productRoot.ProductTypeId != productRootDb.ProductTypeId)
-        {
-            var newProductType = merchDbContext.ProductTypes.FirstOrDefault(x => x.Id == productRoot.ProductTypeId);
-            if (newProductType == null)
+            if (productRootDb == null)
             {
-                result.AddErrorMessage("Unable to find new product type");
-                return result;
+                result.AddErrorMessage("Unable to find the product root with the same id");
+                return;
             }
 
-            productRootDb.ProductType = newProductType;
-        }
+            // If options are empty, check to see if the product DID have variants,
+            // if so, grab the first product as a template if request.Product is null
+            // Then delete the products and create a single default one
+            var products = db.Products.Where(x => x.ProductRootId == productRoot.Id);
+            var productsCount = products.Count();
 
-        // Check for change of tax group
-        if (productRoot.TaxGroupId != productRootDb.TaxGroupId)
-        {
-            var newTaxGroup = merchDbContext.TaxGroups.FirstOrDefault(x => x.Id == productRoot.TaxGroupId);
-            if (newTaxGroup == null)
+            // Map the data from updated product root to db root (manual mapping)
+            productRootDb.CopyFrom(productRoot);
+
+            // Check for change of product type
+            if (productRoot.ProductTypeId != productRootDb.ProductTypeId)
             {
-                result.AddErrorMessage("Unable to find new tax group");
-                return result;
-            }
-
-            productRootDb.TaxGroup = newTaxGroup;
-        }
-
-        // Note: Warehouse changes are handled through the ProductRootWarehouses junction table
-        // and should be managed separately via the WarehouseService
-
-        var variantOptions = productRootDb.ProductOptions.Where(o => o.IsVariant).ToList();
-        if (!variantOptions.Any())
-        {
-            if (productsCount > 1)
-            {
-                // Need to delete and keep one of the variants which
-                // will now be the new single default
-                var productDb = products.FirstOrDefault(x => x.Default);
-
-                result.AddWarningMessage(
-                    $"Options removed, so removing {productsCount} products from {productRootDb.RootName} and turning it into a single product");
-
-                // Explicitly cleanup ProductWarehouse records for products being deleted
-                // (cascade delete should handle this, but being explicit for clarity)
-                var productsToDelete = products.Where(x => x.Id != productDb!.Id).ToList();
-                foreach (var product in productsToDelete)
+                var newProductType = db.ProductTypes.FirstOrDefault(x => x.Id == productRoot.ProductTypeId);
+                if (newProductType == null)
                 {
-                    merchDbContext.Products.Remove(product);
+                    result.AddErrorMessage("Unable to find new product type");
+                    return;
                 }
 
-                // Map over the properties passed in
-                productDb!.Default = true;
-
-                // Set the variant name
-                productDb.Name = productRootDb.RootName;
-
-                // Remove the variant key
-                productDb.VariantOptionsKey = null;
+                productRootDb.ProductType = newProductType;
             }
-        }
-        else
-        {
-            // We have options, need to check if we are changing from a single product to multiple variants
-            if (productsCount > 1)
+
+            // Check for change of tax group
+            if (productRoot.TaxGroupId != productRootDb.TaxGroupId)
             {
-                // We have variants already
-                // we need to filter out the products to update, delete and add
-                var updateOptionChoices = variantOptions.Select(option => option.ProductOptionValues);
-                var updatedResults = updateOptionChoices.CartesianObjects().ToList();
-                var updatedVariantIds = updatedResults.CreateVariantIds();
-
-                var originalIds = products
-                    .Select(x => x.VariantOptionsKey)
-                    .Where(x => x != null)
-                    .ToList()
-                    .ToDictionary(x => x!, x => x!);
-
-                // returns all elements in originalVariantIds that are not in optionItemsNew.
-                var toBeDeleted = originalIds!.Except(updatedVariantIds).Select(x => x.Key);
-                var productsToBeDeleted = products.Where(x => toBeDeleted.Contains(x.VariantOptionsKey)).ToList();
-                var missingDefaultProduct = productsToBeDeleted.Any(x => x.Default);
-
-                // Remove products - cascade delete will cleanup ProductWarehouse records
-                merchDbContext.Products.RemoveRange(productsToBeDeleted);
-
-                // returns all elements in updatedResults that are not in result.
-                var toBeAdded = updatedVariantIds.Except(originalIds!);
-                foreach (var keyValuePair in toBeAdded)
+                var newTaxGroup = db.TaxGroups.FirstOrDefault(x => x.Id == productRoot.TaxGroupId);
+                if (newTaxGroup == null)
                 {
-                    var template = products.FirstOrDefault();
-
-                    var p = productFactory.Create(productRootDb, $"{productRootDb.RootName} - {keyValuePair.Value}",
-                        template!.Price,
-                        template.CostOfGoods, template.Gtin ?? "", template.Sku ?? "",
-                        false, keyValuePair.Key);
-
-                    merchDbContext.Products.Add(p);
+                    result.AddErrorMessage("Unable to find new tax group");
+                    return;
                 }
 
-                await merchDbContext.SaveChangesAsyncLogged(logger, result);
+                productRootDb.TaxGroup = newTaxGroup;
+            }
 
-                if (missingDefaultProduct)
+            // Note: Warehouse changes are handled through the ProductRootWarehouses junction table
+            // and should be managed separately via the WarehouseService
+
+            var variantOptions = productRootDb.ProductOptions.Where(o => o.IsVariant).ToList();
+            if (!variantOptions.Any())
+            {
+                if (productsCount > 1)
                 {
-                    // Do a save, then get the products again to check we have a default
-                    var updatedProducts = merchDbContext.Products.Include(x => x.ProductRoot)
-                        .Where(x => x.ProductRoot.Id == productRootDb.Id);
+                    // Need to delete and keep one of the variants which
+                    // will now be the new single default
+                    var productDb = products.FirstOrDefault(x => x.Default);
 
-                    var firstProduct = updatedProducts.FirstOrDefault();
-                    firstProduct!.Default = true;
+                    result.AddWarningMessage(
+                        $"Options removed, so removing {productsCount} products from {productRootDb.RootName} and turning it into a single product");
 
-                    // May not need to call this just update
-                    merchDbContext.Products.Update(firstProduct);
+                    // Explicitly cleanup ProductWarehouse records for products being deleted
+                    // (cascade delete should handle this, but being explicit for clarity)
+                    var productsToDelete = products.Where(x => x.Id != productDb!.Id).ToList();
+                    foreach (var product in productsToDelete)
+                    {
+                        db.Products.Remove(product);
+                    }
+
+                    // Map over the properties passed in
+                    productDb!.Default = true;
+
+                    // Set the variant name
+                    productDb.Name = productRootDb.RootName;
+
+                    // Remove the variant key
+                    productDb.VariantOptionsKey = null;
                 }
             }
             else
             {
-                var productTemplate = products.FirstOrDefault();
-
-                // We are changing from a single product, to variants
-                CreateVariantsNew(productRootDb, productTemplate!.Price, productTemplate.CostOfGoods,
-                    productTemplate.Gtin ?? "", productTemplate.Sku ?? "");
-
-                // Delete the initial product - cascade delete will cleanup ProductWarehouse records
-                foreach (var product in products)
+                // We have options, need to check if we are changing from a single product to multiple variants
+                if (productsCount > 1)
                 {
-                    merchDbContext.Products.Remove(product);
+                    // We have variants already
+                    // we need to filter out the products to update, delete and add
+                    var updateOptionChoices = variantOptions.Select(option => option.ProductOptionValues);
+                    var updatedResults = updateOptionChoices.CartesianObjects().ToList();
+                    var updatedVariantIds = updatedResults.CreateVariantIds();
+
+                    var originalIds = products
+                        .Select(x => x.VariantOptionsKey)
+                        .Where(x => x != null)
+                        .ToList()
+                        .ToDictionary(x => x!, x => x!);
+
+                    // returns all elements in originalVariantIds that are not in optionItemsNew.
+                    var toBeDeleted = originalIds!.Except(updatedVariantIds).Select(x => x.Key);
+                    var productsToBeDeleted = products.Where(x => toBeDeleted.Contains(x.VariantOptionsKey)).ToList();
+                    var missingDefaultProduct = productsToBeDeleted.Any(x => x.Default);
+
+                    // Remove products - cascade delete will cleanup ProductWarehouse records
+                    db.Products.RemoveRange(productsToBeDeleted);
+
+                    // returns all elements in updatedResults that are not in result.
+                    var toBeAdded = updatedVariantIds.Except(originalIds!);
+                    foreach (var keyValuePair in toBeAdded)
+                    {
+                        var template = products.FirstOrDefault();
+
+                        var p = productFactory.Create(productRootDb, $"{productRootDb.RootName} - {keyValuePair.Value}",
+                            template!.Price,
+                            template.CostOfGoods, template.Gtin ?? "", template.Sku ?? "",
+                            false, keyValuePair.Key);
+
+                        db.Products.Add(p);
+                    }
+
+                    await db.SaveChangesAsyncLogged(logger, result);
+
+                    if (missingDefaultProduct)
+                    {
+                        // Do a save, then get the products again to check we have a default
+                        var updatedProducts = db.Products.Include(x => x.ProductRoot)
+                            .Where(x => x.ProductRoot.Id == productRootDb.Id);
+
+                        var firstProduct = updatedProducts.FirstOrDefault();
+                        firstProduct!.Default = true;
+
+                        // May not need to call this just update
+                        db.Products.Update(firstProduct);
+                    }
+                }
+                else
+                {
+                    var productTemplate = products.FirstOrDefault();
+
+                    // We are changing from a single product, to variants
+                    CreateVariantsNew(db, productRootDb, productTemplate!.Price, productTemplate.CostOfGoods,
+                        productTemplate.Gtin ?? "", productTemplate.Sku ?? "");
+
+                    // Delete the initial product - cascade delete will cleanup ProductWarehouse records
+                    foreach (var product in products)
+                    {
+                        db.Products.Remove(product);
+                    }
                 }
             }
-        }
 
-        await merchDbContext.SaveChangesAsyncLogged(logger, result);
+            await db.SaveChangesAsyncLogged(logger, result);
+        });
+
+        scope.Complete();
         return result;
     }
 
     /// <summary>
     /// Creates a new product & product root
     /// </summary>
-    /// <param name="name"></param>
-    /// <param name="taxGroup"></param>
-    /// <param name="productType"></param>
-    /// <param name="warehouse"></param>
-    /// <param name="shippingOptions"></param>
-    /// <param name="price"></param>
-    /// <param name="costOfGoods"></param>
-    /// <param name="gtin"></param>
-    /// <param name="sku"></param>
-    /// <param name="productOptions"></param>
-    /// <returns></returns>
     public async Task<CrudResult<ProductRoot>> Create(string name, TaxGroup taxGroup, ProductType productType,
         Warehouse warehouse, List<ShippingOption> shippingOptions, decimal price, decimal costOfGoods, string gtin, string sku, List<ProductOption> productOptions)
     {
         var result = new CrudResult<ProductRoot>();
+        ProductRoot? productRoot = null;
+        using var scope = _efCoreScopeProvider.CreateScope();
 
-        // Create the product root
-        var productRoot = productRootFactory.Create(name, taxGroup, productType, warehouse, shippingOptions, productOptions);
-        merchDbContext.RootProducts.Add(productRoot);
-
-        // Are there product options? If so we are creating variants, if not we are creating a single default product
-        if (productOptions.Any(o => o.IsVariant))
+        await scope.ExecuteWithContextAsync<Task>(async db =>
         {
-            CreateVariantsNew(productRoot, price, costOfGoods, gtin, sku);
-        }
-        else
-        {
-            var product = productFactory.Create(productRoot, productRoot.RootName ?? "Missing Root Name", price,
-                costOfGoods, gtin, sku, true);
-            merchDbContext.Products.Add(product);
-        }
+            // Create the product root
+            productRoot = productRootFactory.Create(name, taxGroup, productType, warehouse, shippingOptions, productOptions);
+            db.RootProducts.Add(productRoot);
 
-        // Finally save changes
-        await merchDbContext.SaveChangesAsyncLogged(logger, result);
+            // Are there product options? If so we are creating variants, if not we are creating a single default product
+            if (productOptions.Any(o => o.IsVariant))
+            {
+                CreateVariantsNew(db, productRoot, price, costOfGoods, gtin, sku);
+            }
+            else
+            {
+                var product = productFactory.Create(productRoot, productRoot.RootName ?? "Missing Root Name", price,
+                    costOfGoods, gtin, sku, true);
+                db.Products.Add(product);
+            }
 
+            // Finally save changes
+            await db.SaveChangesAsyncLogged(logger, result);
+        });
+
+        scope.Complete();
         result.ResultObject = productRoot;
         return result;
     }
@@ -238,29 +238,28 @@ public class ProductService(
     /// <summary>
     /// Update a product
     /// </summary>
-    /// <param name="product"></param>
-    /// <returns></returns>
     public async Task<CrudResult<Product>> Update(Product product)
     {
         var result = new CrudResult<Product>();
+        using var scope = _efCoreScopeProvider.CreateScope();
 
-        // First product root
-        var productDb = await merchDbContext.Products
-            .AsSplitQuery()
-            .FirstOrDefaultAsync(x => x.Id == product.Id);
-
-        if (productDb == null)
+        await scope.ExecuteWithContextAsync<Task>(async db =>
         {
-            result.AddErrorMessage("Unable to find the product root with the same id");
-            return result;
-        }
+            var productDb = await db.Products
+                .AsSplitQuery()
+                .FirstOrDefaultAsync(x => x.Id == product.Id);
 
-        // Map the data from updated product root to db root (manual mapping)
-        productDb.CopyFrom(product);
+            if (productDb == null)
+            {
+                result.AddErrorMessage("Unable to find the product root with the same id");
+                return;
+            }
 
-        // Finally save changes
-        await merchDbContext.SaveChangesAsyncLogged(logger, result);
+            productDb.CopyFrom(product);
+            await db.SaveChangesAsyncLogged(logger, result);
+        });
 
+        scope.Complete();
         result.ResultObject = product;
         return result;
     }
@@ -268,26 +267,33 @@ public class ProductService(
     /// <summary>
     /// Deletes a product root
     /// </summary>
-    /// <param name="productRoot"></param>
-    /// <returns></returns>
     public async Task<CrudResult<ProductRoot>> Delete(ProductRoot productRoot)
     {
         var result = new CrudResult<ProductRoot>();
-        var toDelete =
-            await merchDbContext.RootProducts.Include(x => x.Products)
+        using var scope = _efCoreScopeProvider.CreateScope();
+
+        await scope.ExecuteWithContextAsync<Task>(async db =>
+        {
+            var toDelete = await db.RootProducts.Include(x => x.Products)
                 .AsSplitQuery()
                 .FirstOrDefaultAsync(x => x.Id == productRoot.Id);
 
-        var collection = toDelete!.Products;
-        if (collection?.Any() == true)
-        {
-            foreach (var product in collection)
+            if (toDelete != null)
             {
-                merchDbContext.Products.Remove(product);
+                var collection = toDelete.Products;
+                if (collection?.Any() == true)
+                {
+                    foreach (var product in collection)
+                    {
+                        db.Products.Remove(product);
+                    }
+                }
+                db.RootProducts.Remove(toDelete);
+                await db.SaveChangesAsyncLogged(logger, result);
             }
-        }
-        merchDbContext.RootProducts.Remove(toDelete);
-        await merchDbContext.SaveChangesAsyncLogged(logger, result);
+        });
+
+        scope.Complete();
         return result;
     }
 
@@ -306,40 +312,46 @@ public class ProductService(
         CancellationToken cancellationToken = default)
     {
         var result = new CrudResult<ProductRoot>();
+        ProductRoot? productRoot = null;
+        using var scope = _efCoreScopeProvider.CreateScope();
 
-        var taxGroup = await merchDbContext.TaxGroups.FindAsync([taxGroupId], cancellationToken);
-        if (taxGroup == null)
+        await scope.ExecuteWithContextAsync<Task>(async db =>
         {
-            result.AddErrorMessage("Tax group not found");
-            return result;
-        }
+            var taxGroup = await db.TaxGroups.FindAsync([taxGroupId], cancellationToken);
+            if (taxGroup == null)
+            {
+                result.AddErrorMessage("Tax group not found");
+                return;
+            }
 
-        var productType = await merchDbContext.ProductTypes.FindAsync([productTypeId], cancellationToken);
-        if (productType == null)
-        {
-            result.AddErrorMessage("Product type not found");
-            return result;
-        }
+            var productType = await db.ProductTypes.FindAsync([productTypeId], cancellationToken);
+            if (productType == null)
+            {
+                result.AddErrorMessage("Product type not found");
+                return;
+            }
 
-        var categories = await merchDbContext.ProductCategories
-            .Where(c => categoryIds.Contains(c.Id))
-            .ToListAsync(cancellationToken);
+            var categories = await db.ProductCategories
+                .Where(c => categoryIds.Contains(c.Id))
+                .ToListAsync(cancellationToken);
 
-        var productRoot = new ProductRoot
-        {
-            Id = Guid.NewGuid(),
-            RootName = name,
-            TaxGroup = taxGroup,
-            TaxGroupId = taxGroupId,
-            ProductType = productType,
-            ProductTypeId = productTypeId,
-            Weight = weight,
-            Categories = categories
-        };
+            productRoot = new ProductRoot
+            {
+                Id = Guid.NewGuid(),
+                RootName = name,
+                TaxGroup = taxGroup,
+                TaxGroupId = taxGroupId,
+                ProductType = productType,
+                ProductTypeId = productTypeId,
+                Weight = weight,
+                Categories = categories
+            };
 
-        merchDbContext.RootProducts.Add(productRoot);
-        await merchDbContext.SaveChangesAsyncLogged(logger, result, cancellationToken);
+            db.RootProducts.Add(productRoot);
+            await db.SaveChangesAsyncLogged(logger, result, cancellationToken);
+        });
 
+        scope.Complete();
         result.ResultObject = productRoot;
         return result;
     }
@@ -359,21 +371,26 @@ public class ProductService(
         CancellationToken cancellationToken = default)
     {
         var result = new CrudResult<ProductOption>();
+        ProductOption? option = null;
+        using var scope = _efCoreScopeProvider.CreateScope();
 
-        // ProductOptions is a JSON column, automatically loaded with ProductRoot
-        var productRoot = await merchDbContext.RootProducts
-            .FirstOrDefaultAsync(pr => pr.Id == productRootId, cancellationToken);
-
-        if (productRoot == null)
+        await scope.ExecuteWithContextAsync<Task>(async db =>
         {
-            result.AddErrorMessage("Product root not found");
-            return result;
-        }
+            var productRoot = await db.RootProducts
+                .FirstOrDefaultAsync(pr => pr.Id == productRootId, cancellationToken);
 
-        var option = productOptionFactory.Create(name, alias, sortOrder, optionTypeAlias, optionUiAlias, isVariant, values);
-        productRoot.ProductOptions.Add(option);
-        await merchDbContext.SaveChangesAsyncLogged(logger, result, cancellationToken);
+            if (productRoot == null)
+            {
+                result.AddErrorMessage("Product root not found");
+                return;
+            }
 
+            option = productOptionFactory.Create(name, alias, sortOrder, optionTypeAlias, optionUiAlias, isVariant, values);
+            productRoot.ProductOptions.Add(option);
+            await db.SaveChangesAsyncLogged(logger, result, cancellationToken);
+        });
+
+        scope.Complete();
         result.ResultObject = option;
         return result;
     }
@@ -387,28 +404,32 @@ public class ProductService(
         CancellationToken cancellationToken = default)
     {
         var result = new CrudResult<bool>();
+        using var scope = _efCoreScopeProvider.CreateScope();
 
-        // ProductOptions is a JSON column, automatically loaded with ProductRoot
-        var productRoot = await merchDbContext.RootProducts
-            .FirstOrDefaultAsync(pr => pr.Id == productRootId, cancellationToken);
-
-        if (productRoot == null)
+        await scope.ExecuteWithContextAsync<Task>(async db =>
         {
-            result.AddErrorMessage("Product root not found");
-            return result;
-        }
+            var productRoot = await db.RootProducts
+                .FirstOrDefaultAsync(pr => pr.Id == productRootId, cancellationToken);
 
-        var option = productRoot.ProductOptions.FirstOrDefault(o => o.Id == optionId);
-        if (option == null)
-        {
-            result.AddErrorMessage("Option not found");
-            return result;
-        }
+            if (productRoot == null)
+            {
+                result.AddErrorMessage("Product root not found");
+                return;
+            }
 
-        productRoot.ProductOptions.Remove(option);
-        await merchDbContext.SaveChangesAsyncLogged(logger, result, cancellationToken);
+            var option = productRoot.ProductOptions.FirstOrDefault(o => o.Id == optionId);
+            if (option == null)
+            {
+                result.AddErrorMessage("Option not found");
+                return;
+            }
 
-        result.ResultObject = true;
+            productRoot.ProductOptions.Remove(option);
+            await db.SaveChangesAsyncLogged(logger, result, cancellationToken);
+            result.ResultObject = true;
+        });
+
+        scope.Complete();
         return result;
     }
 
@@ -422,39 +443,41 @@ public class ProductService(
         CancellationToken cancellationToken = default)
     {
         var result = new CrudResult<List<Product>>();
+        List<Product>? generatedVariants = null;
+        using var scope = _efCoreScopeProvider.CreateScope();
 
-        // ProductOptions is a JSON column, automatically loaded with ProductRoot
-        var productRoot = await merchDbContext.RootProducts
-            .Include(pr => pr.Products)
-            .FirstOrDefaultAsync(pr => pr.Id == productRootId, cancellationToken);
-
-        if (productRoot == null)
+        await scope.ExecuteWithContextAsync<Task>(async db =>
         {
-            result.AddErrorMessage("Product root not found");
-            return result;
-        }
+            var productRoot = await db.RootProducts
+                .Include(pr => pr.Products)
+                .FirstOrDefaultAsync(pr => pr.Id == productRootId, cancellationToken);
 
-        if (!productRoot.ProductOptions.Any(o => o.IsVariant))
-        {
-            result.AddErrorMessage("Cannot generate variants without variant options");
-            return result;
-        }
+            if (productRoot == null)
+            {
+                result.AddErrorMessage("Product root not found");
+                return;
+            }
 
-        // Delete existing variants if any
-        if (productRoot.Products.Any())
-        {
-            merchDbContext.Products.RemoveRange(productRoot.Products);
-        }
+            if (!productRoot.ProductOptions.Any(o => o.IsVariant))
+            {
+                result.AddErrorMessage("Cannot generate variants without variant options");
+                return;
+            }
 
-        // Generate new variants using existing logic
-        CreateVariantsNew(productRoot, defaultPrice, defaultCostOfGoods, "", "");
-        await merchDbContext.SaveChangesAsyncLogged(logger, result, cancellationToken);
+            if (productRoot.Products.Any())
+            {
+                db.Products.RemoveRange(productRoot.Products);
+            }
 
-        // Reload to get generated variants
-        var generatedVariants = await merchDbContext.Products
-            .Where(p => p.ProductRootId == productRootId)
-            .ToListAsync(cancellationToken);
+            CreateVariantsNew(db, productRoot, defaultPrice, defaultCostOfGoods, "", "");
+            await db.SaveChangesAsyncLogged(logger, result, cancellationToken);
 
+            generatedVariants = await db.Products
+                .Where(p => p.ProductRootId == productRootId)
+                .ToListAsync(cancellationToken);
+        });
+
+        scope.Complete();
         result.ResultObject = generatedVariants;
         return result;
     }
@@ -471,33 +494,37 @@ public class ProductService(
         CancellationToken cancellationToken = default)
     {
         var result = new CrudResult<bool>();
+        using var scope = _efCoreScopeProvider.CreateScope();
 
-        var productWarehouse = await merchDbContext.ProductWarehouses
-            .FirstOrDefaultAsync(pw => pw.ProductId == variantId && pw.WarehouseId == warehouseId, cancellationToken);
-
-        if (productWarehouse == null)
+        await scope.ExecuteWithContextAsync<Task>(async db =>
         {
-            // Create new ProductWarehouse record
-            productWarehouse = new ProductWarehouse
+            var productWarehouse = await db.ProductWarehouses
+                .FirstOrDefaultAsync(pw => pw.ProductId == variantId && pw.WarehouseId == warehouseId, cancellationToken);
+
+            if (productWarehouse == null)
             {
-                ProductId = variantId,
-                WarehouseId = warehouseId,
-                Stock = stock,
-                ReorderPoint = reorderPoint,
-                TrackStock = trackStock
-            };
-            merchDbContext.ProductWarehouses.Add(productWarehouse);
-        }
-        else
-        {
-            // Update existing
-            productWarehouse.Stock = stock;
-            productWarehouse.ReorderPoint = reorderPoint;
-            productWarehouse.TrackStock = trackStock;
-        }
+                productWarehouse = new ProductWarehouse
+                {
+                    ProductId = variantId,
+                    WarehouseId = warehouseId,
+                    Stock = stock,
+                    ReorderPoint = reorderPoint,
+                    TrackStock = trackStock
+                };
+                db.ProductWarehouses.Add(productWarehouse);
+            }
+            else
+            {
+                productWarehouse.Stock = stock;
+                productWarehouse.ReorderPoint = reorderPoint;
+                productWarehouse.TrackStock = trackStock;
+            }
 
-        await merchDbContext.SaveChangesAsyncLogged(logger, result, cancellationToken);
-        result.ResultObject = true;
+            await db.SaveChangesAsyncLogged(logger, result, cancellationToken);
+            result.ResultObject = true;
+        });
+
+        scope.Complete();
         return result;
     }
 
@@ -513,12 +540,19 @@ public class ProductService(
         CancellationToken cancellationToken = default)
     {
         var result = new CrudResult<bool>();
+        List<Product>? variants = null;
+        using var scope = _efCoreScopeProvider.CreateScope();
 
-        var variants = await merchDbContext.Products
-            .Where(p => p.ProductRootId == productRootId)
-            .ToListAsync(cancellationToken);
+        await scope.ExecuteWithContextAsync<Task>(async db =>
+        {
+            variants = await db.Products
+                .Where(p => p.ProductRootId == productRootId)
+                .ToListAsync(cancellationToken);
+        });
 
-        if (!variants.Any())
+        scope.Complete();
+
+        if (variants == null || !variants.Any())
         {
             result.AddErrorMessage("No variants found for this product root");
             return result;
@@ -554,29 +588,34 @@ public class ProductService(
         CancellationToken cancellationToken = default)
     {
         var result = new CrudResult<ProductType>();
+        ProductType? productType = null;
+        using var scope = _efCoreScopeProvider.CreateScope();
 
-        var alias = slugHelper.GenerateSlug(name);
-
-        // Check if alias already exists
-        var existingType = await merchDbContext.ProductTypes
-            .FirstOrDefaultAsync(pt => pt.Alias == alias, cancellationToken);
-
-        if (existingType != null)
+        await scope.ExecuteWithContextAsync<Task>(async db =>
         {
-            result.AddErrorMessage($"A product type with alias '{alias}' already exists");
-            return result;
-        }
+            var alias = slugHelper.GenerateSlug(name);
 
-        var productType = new ProductType
-        {
-            Id = Guid.NewGuid(),
-            Name = name,
-            Alias = alias
-        };
+            var existingType = await db.ProductTypes
+                .FirstOrDefaultAsync(pt => pt.Alias == alias, cancellationToken);
 
-        merchDbContext.ProductTypes.Add(productType);
-        await merchDbContext.SaveChangesAsyncLogged(logger, result, cancellationToken);
+            if (existingType != null)
+            {
+                result.AddErrorMessage($"A product type with alias '{alias}' already exists");
+                return;
+            }
 
+            productType = new ProductType
+            {
+                Id = Guid.NewGuid(),
+                Name = name,
+                Alias = alias
+            };
+
+            db.ProductTypes.Add(productType);
+            await db.SaveChangesAsyncLogged(logger, result, cancellationToken);
+        });
+
+        scope.Complete();
         result.ResultObject = productType;
         return result;
     }
@@ -589,16 +628,22 @@ public class ProductService(
         CancellationToken cancellationToken = default)
     {
         var result = new CrudResult<ProductCategory>();
+        ProductCategory? category = null;
+        using var scope = _efCoreScopeProvider.CreateScope();
 
-        var category = new ProductCategory
+        await scope.ExecuteWithContextAsync<Task>(async db =>
         {
-            Id = Guid.NewGuid(),
-            Name = name
-        };
+            category = new ProductCategory
+            {
+                Id = Guid.NewGuid(),
+                Name = name
+            };
 
-        merchDbContext.ProductCategories.Add(category);
-        await merchDbContext.SaveChangesAsyncLogged(logger, result, cancellationToken);
+            db.ProductCategories.Add(category);
+            await db.SaveChangesAsyncLogged(logger, result, cancellationToken);
+        });
 
+        scope.Complete();
         result.ResultObject = category;
         return result;
     }
@@ -608,9 +653,11 @@ public class ProductService(
     /// </summary>
     public async Task<List<ProductType>> GetProductTypes(CancellationToken cancellationToken = default)
     {
-        return await merchDbContext.ProductTypes
-            .OrderBy(pt => pt.Name)
-            .ToListAsync(cancellationToken);
+        using var scope = _efCoreScopeProvider.CreateScope();
+        var result = await scope.ExecuteWithContextAsync(async db =>
+            await db.ProductTypes.OrderBy(pt => pt.Name).ToListAsync(cancellationToken));
+        scope.Complete();
+        return result;
     }
 
     /// <summary>
@@ -618,21 +665,18 @@ public class ProductService(
     /// </summary>
     public async Task<List<ProductCategory>> GetProductCategories(CancellationToken cancellationToken = default)
     {
-        return await merchDbContext.ProductCategories
-            .OrderBy(pc => pc.Name)
-            .ToListAsync(cancellationToken);
+        using var scope = _efCoreScopeProvider.CreateScope();
+        var result = await scope.ExecuteWithContextAsync(async db =>
+            await db.ProductCategories.OrderBy(pc => pc.Name).ToListAsync(cancellationToken));
+        scope.Complete();
+        return result;
     }
 
 
     /// <summary>
     /// Creates new variants from the product options
     /// </summary>
-    /// <param name="productRoot"></param>
-    /// <param name="price"></param>
-    /// <param name="costOfGoods"></param>
-    /// <param name="gtin"></param>
-    /// <param name="sku"></param>
-    private void CreateVariantsNew(ProductRoot productRoot, decimal price, decimal costOfGoods, string gtin, string sku)
+    private void CreateVariantsNew(MerchelloDbContext db, ProductRoot productRoot, decimal price, decimal costOfGoods, string gtin, string sku)
     {
         // Create the different versions of the product from the product options
         var variantOptions = productRoot.ProductOptions
@@ -649,7 +693,7 @@ public class ProductService(
                 costOfGoods, gtin, sku,
                 index == 0, variantKeyName.Key);
             // Save the product
-            merchDbContext.Products.Add(product);
+            db.Products.Add(product);
         }
     }
 
@@ -662,23 +706,29 @@ public class ProductService(
         bool includeWarehouses = false,
         CancellationToken cancellationToken = default)
     {
-        IQueryable<ProductRoot> query = merchDbContext.RootProducts
-            .Include(pr => pr.Categories)
-            .Include(pr => pr.ProductType)
-            .Include(pr => pr.TaxGroup);
-
-        if (includeProducts)
+        using var scope = _efCoreScopeProvider.CreateScope();
+        var result = await scope.ExecuteWithContextAsync(async db =>
         {
-            query = query.Include(pr => pr.Products);
-        }
+            IQueryable<ProductRoot> query = db.RootProducts
+                .Include(pr => pr.Categories)
+                .Include(pr => pr.ProductType)
+                .Include(pr => pr.TaxGroup);
 
-        if (includeWarehouses)
-        {
-            query = query.Include(pr => pr.ProductRootWarehouses)
-                .ThenInclude(prw => prw.Warehouse);
-        }
+            if (includeProducts)
+            {
+                query = query.Include(pr => pr.Products);
+            }
 
-        return await query.FirstOrDefaultAsync(pr => pr.Id == productRootId, cancellationToken);
+            if (includeWarehouses)
+            {
+                query = query.Include(pr => pr.ProductRootWarehouses)
+                    .ThenInclude(prw => prw.Warehouse);
+            }
+
+            return await query.FirstOrDefaultAsync(pr => pr.Id == productRootId, cancellationToken);
+        });
+        scope.Complete();
+        return result;
     }
 
     /// <summary>
@@ -691,41 +741,47 @@ public class ProductService(
         CancellationToken cancellationToken = default)
     {
         var result = new CrudResult<bool>();
+        using var scope = _efCoreScopeProvider.CreateScope();
 
-        var variant = await merchDbContext.Products
-            .Include(p => p.ExcludedShippingOptions)
-            .FirstOrDefaultAsync(p => p.Id == variantId, cancellationToken);
-
-        if (variant == null)
+        await scope.ExecuteWithContextAsync<Task>(async db =>
         {
-            result.AddErrorMessage("Variant not found");
-            return result;
-        }
+            var variant = await db.Products
+                .Include(p => p.ExcludedShippingOptions)
+                .FirstOrDefaultAsync(p => p.Id == variantId, cancellationToken);
 
-        // Load shipping options to exclude
-        var optionsToExclude = await merchDbContext.ShippingOptions
-            .Where(so => excludedShippingOptionIds.Contains(so.Id))
-            .ToListAsync(cancellationToken);
+            if (variant == null)
+            {
+                result.AddErrorMessage("Variant not found");
+                return;
+            }
 
-        // Update restriction mode
-        if (optionsToExclude.Any())
-        {
-            variant.ShippingRestrictionMode = ShippingRestrictionMode.ExcludeList;
-        }
-        else
-        {
-            variant.ShippingRestrictionMode = ShippingRestrictionMode.None;
-        }
+            // Load shipping options to exclude
+            var optionsToExclude = await db.ShippingOptions
+                .Where(so => excludedShippingOptionIds.Contains(so.Id))
+                .ToListAsync(cancellationToken);
 
-        // Replace excluded collection
-        variant.ExcludedShippingOptions.Clear();
-        foreach (var so in optionsToExclude)
-        {
-            variant.ExcludedShippingOptions.Add(so);
-        }
+            // Update restriction mode
+            if (optionsToExclude.Any())
+            {
+                variant.ShippingRestrictionMode = ShippingRestrictionMode.ExcludeList;
+            }
+            else
+            {
+                variant.ShippingRestrictionMode = ShippingRestrictionMode.None;
+            }
 
-        await merchDbContext.SaveChangesAsyncLogged(logger, result, cancellationToken);
-        result.ResultObject = true;
+            // Replace excluded collection
+            variant.ExcludedShippingOptions.Clear();
+            foreach (var so in optionsToExclude)
+            {
+                variant.ExcludedShippingOptions.Add(so);
+            }
+
+            await db.SaveChangesAsyncLogged(logger, result, cancellationToken);
+            result.ResultObject = true;
+        });
+
+        scope.Complete();
         return result;
     }
 
@@ -737,28 +793,34 @@ public class ProductService(
         CancellationToken cancellationToken = default)
     {
         var result = new CrudResult<bool>();
+        using var scope = _efCoreScopeProvider.CreateScope();
 
-        var variant = await merchDbContext.Products
-            .FirstOrDefaultAsync(p => p.Id == variantId, cancellationToken);
-
-        if (variant == null)
+        await scope.ExecuteWithContextAsync<Task>(async db =>
         {
-            result.AddErrorMessage("Variant not found");
-            return result;
-        }
+            var variant = await db.Products
+                .FirstOrDefaultAsync(p => p.Id == variantId, cancellationToken);
 
-        // Fetch siblings
-        var siblings = await merchDbContext.Products
-            .Where(p => p.ProductRootId == variant.ProductRootId)
-            .ToListAsync(cancellationToken);
+            if (variant == null)
+            {
+                result.AddErrorMessage("Variant not found");
+                return;
+            }
 
-        foreach (var v in siblings)
-        {
-            v.Default = v.Id == variantId;
-        }
+            // Fetch siblings
+            var siblings = await db.Products
+                .Where(p => p.ProductRootId == variant.ProductRootId)
+                .ToListAsync(cancellationToken);
 
-        await merchDbContext.SaveChangesAsyncLogged(logger, result, cancellationToken);
-        result.ResultObject = true;
+            foreach (var v in siblings)
+            {
+                v.Default = v.Id == variantId;
+            }
+
+            await db.SaveChangesAsyncLogged(logger, result, cancellationToken);
+            result.ResultObject = true;
+        });
+
+        scope.Complete();
         return result;
     }
 
@@ -782,9 +844,10 @@ public class ProductService(
     /// <summary>
     /// Updates, adds and removes the categories on the product root
     /// </summary>
-    /// <param name="updatedProductRoot"></param>
-    /// <param name="productRootDb"></param>
-    private void UpdateCategories(ProductRoot updatedProductRoot, ProductRoot productRootDb)
+    /// <param name="db">Database context</param>
+    /// <param name="updatedProductRoot">Updated product root with new categories</param>
+    /// <param name="productRootDb">Existing product root from database</param>
+    private void UpdateCategories(MerchelloDbContext db, ProductRoot updatedProductRoot, ProductRoot productRootDb)
     {
         if (updatedProductRoot.Categories.Any())
         {
@@ -809,7 +872,7 @@ public class ProductService(
             {
                 foreach (var productRootCategory in updatedProductRoot.Categories)
                 {
-                    var dbCat = merchDbContext.ProductCategories.FirstOrDefault(x => x.Id == productRootCategory.Id);
+                    var dbCat = db.ProductCategories.FirstOrDefault(x => x.Id == productRootCategory.Id);
                     if (dbCat != null)
                     {
                         productRootDb.Categories.Add(dbCat);
@@ -831,11 +894,15 @@ public class ProductService(
     /// </summary>
     public async Task<List<ProductFilterGroup>> GetFilterGroups(CancellationToken cancellationToken = default)
     {
-        return await merchDbContext.ProductFilterGroups
-            .Include(fg => fg.Filters)
-            .OrderBy(fg => fg.SortOrder)
-            .AsNoTracking()
-            .ToListAsync(cancellationToken);
+        using var scope = _efCoreScopeProvider.CreateScope();
+        var result = await scope.ExecuteWithContextAsync(async db =>
+            await db.ProductFilterGroups
+                .Include(fg => fg.Filters)
+                .OrderBy(fg => fg.SortOrder)
+                .AsNoTracking()
+                .ToListAsync(cancellationToken));
+        scope.Complete();
+        return result;
     }
 
     /// <summary>
@@ -843,9 +910,13 @@ public class ProductService(
     /// </summary>
     public async Task<ProductCategory?> GetCategory(Guid categoryId, CancellationToken cancellationToken = default)
     {
-        return await merchDbContext.ProductCategories
-            .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.Id == categoryId, cancellationToken);
+        using var scope = _efCoreScopeProvider.CreateScope();
+        var result = await scope.ExecuteWithContextAsync(async db =>
+            await db.ProductCategories
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == categoryId, cancellationToken));
+        scope.Complete();
+        return result;
     }
 
     /// <summary>
@@ -853,53 +924,59 @@ public class ProductService(
     /// </summary>
     public async Task<Product?> GetProduct(GetProductParameters parameters, CancellationToken cancellationToken = default)
     {
-        IQueryable<Product> query = merchDbContext.Products;
-
-        if (parameters.IncludeProductRoot)
+        using var scope = _efCoreScopeProvider.CreateScope();
+        var result = await scope.ExecuteWithContextAsync(async db =>
         {
-            query = query.Include(p => p.ProductRoot);
-        }
+            IQueryable<Product> query = db.Products;
 
-        if (parameters.IncludeVariants && parameters.IncludeProductRoot)
-        {
-            query = query.Include(p => p.ProductRoot)
-                .ThenInclude(pr => pr!.Products);
+            if (parameters.IncludeProductRoot)
+            {
+                query = query.Include(p => p.ProductRoot);
+            }
 
-            // If including variants and warehouses, need to include for all variants
-            if (parameters.IncludeProductWarehouses)
+            if (parameters.IncludeVariants && parameters.IncludeProductRoot)
             {
                 query = query.Include(p => p.ProductRoot)
-                    .ThenInclude(pr => pr!.Products)
-                        .ThenInclude(p => p.ProductWarehouses);
+                    .ThenInclude(pr => pr!.Products);
+
+                // If including variants and warehouses, need to include for all variants
+                if (parameters.IncludeProductWarehouses)
+                {
+                    query = query.Include(p => p.ProductRoot)
+                        .ThenInclude(pr => pr!.Products)
+                            .ThenInclude(p => p.ProductWarehouses);
+                }
             }
-        }
 
-        if (parameters.IncludeTaxGroup && parameters.IncludeProductRoot)
-        {
-            query = query.Include(p => p.ProductRoot)
-                .ThenInclude(pr => pr!.TaxGroup);
-        }
+            if (parameters.IncludeTaxGroup && parameters.IncludeProductRoot)
+            {
+                query = query.Include(p => p.ProductRoot)
+                    .ThenInclude(pr => pr!.TaxGroup);
+            }
 
-        if (parameters.IncludeProductWarehouses)
-        {
-            query = query.Include(p => p.ProductWarehouses);
-        }
+            if (parameters.IncludeProductWarehouses)
+            {
+                query = query.Include(p => p.ProductWarehouses);
+            }
 
-        if (parameters.IncludeShippingRestrictions)
-        {
-            query = query
-                .Include(p => p.AllowedShippingOptions)
-                .Include(p => p.ExcludedShippingOptions);
-        }
+            if (parameters.IncludeShippingRestrictions)
+            {
+                query = query
+                    .Include(p => p.AllowedShippingOptions)
+                    .Include(p => p.ExcludedShippingOptions);
+            }
 
-        // Note: Cannot use NoTracking with circular references (ProductRoot->Products creates a cycle)
-        // Only apply NoTracking if we're not including variants
-        if (parameters.NoTracking && !parameters.IncludeVariants)
-        {
-            query = query.AsNoTracking();
-        }
+            // Note: Cannot use NoTracking with circular references (ProductRoot->Products creates a cycle)
+            // Only apply NoTracking if we're not including variants
+            if (parameters.NoTracking && !parameters.IncludeVariants)
+            {
+                query = query.AsNoTracking();
+            }
 
-        return await query.FirstOrDefaultAsync(p => p.Id == parameters.ProductId, cancellationToken);
+            return await query.FirstOrDefaultAsync(p => p.Id == parameters.ProductId, cancellationToken);
+        });
+        scope.Complete();
+        return result;
     }
 
     /// <summary>
@@ -910,87 +987,93 @@ public class ProductService(
     /// <returns></returns>
     public async Task<PaginatedList<Product>> QueryProducts(ProductQueryParameters parameters, CancellationToken cancellationToken = default)
     {
-        // Build a base query without Includes; apply Includes only when materializing items.
-        IQueryable<Product> baseQuery = merchDbContext.Products;
-
-        if (parameters.ProductTypeKey != null)
+        using var scope = _efCoreScopeProvider.CreateScope();
+        var result = await scope.ExecuteWithContextAsync(async db =>
         {
-            baseQuery = baseQuery.Where(x => x.ProductRoot.ProductType.Id == parameters.ProductTypeKey.Value);
-        }
+            // Build a base query without Includes; apply Includes only when materializing items.
+            IQueryable<Product> baseQuery = db.Products;
 
-        if (parameters.CategoryIds?.Any() == true)
-        {
-            baseQuery = baseQuery.Where(x => x.ProductRoot.Categories.Any(pc => parameters.CategoryIds.Contains(pc.Id)));
-        }
+            if (parameters.ProductTypeKey != null)
+            {
+                baseQuery = baseQuery.Where(x => x.ProductRoot.ProductType.Id == parameters.ProductTypeKey.Value);
+            }
 
-        if (parameters.FilterKeys?.Any() == true)
-        {
-            baseQuery = baseQuery.Where(x => x.Filters.Any(pc => parameters.FilterKeys.Contains(pc.Id)));
-        }
+            if (parameters.CategoryIds?.Any() == true)
+            {
+                baseQuery = baseQuery.Where(x => x.ProductRoot.Categories.Any(pc => parameters.CategoryIds.Contains(pc.Id)));
+            }
 
-        // Build the result query (collapsed to one variant per root when filters are applied)
-        IQueryable<Product> resultQuery;
+            if (parameters.FilterKeys?.Any() == true)
+            {
+                baseQuery = baseQuery.Where(x => x.Filters.Any(pc => parameters.FilterKeys.Contains(pc.Id)));
+            }
 
-        if (parameters.FilterKeys?.Any() == true)
-        {
-            // Collapse to one matching variant per root using a correlated subquery
-            var rootIdsQuery = baseQuery.Select(p => p.ProductRootId).Distinct();
+            // Build the result query (collapsed to one variant per root when filters are applied)
+            IQueryable<Product> resultQuery;
 
-            resultQuery = rootIdsQuery
-                .Select(rootId => baseQuery
-                    .Where(p => p.ProductRootId == rootId)
-                    .OrderByDescending(p => p.Default)
-                    .ThenBy(p => p.Id)
-                    .FirstOrDefault()!)!; // one product per root
-        }
-        else
-        {
-            // If no filters are applied, return only default variant unless explicitly asking for all variants
-            resultQuery = parameters.AllVariants ? baseQuery : baseQuery.Where(x => x.Default);
-        }
+            if (parameters.FilterKeys?.Any() == true)
+            {
+                // Collapse to one matching variant per root using a correlated subquery
+                var rootIdsQuery = baseQuery.Select(p => p.ProductRootId).Distinct();
 
-        // Paging
-        var pageIndex = parameters.CurrentPage - 1;
-        var pageSize = parameters.AmountPerPage;
+                resultQuery = rootIdsQuery
+                    .Select(rootId => baseQuery
+                        .Where(p => p.ProductRootId == rootId)
+                        .OrderByDescending(p => p.Default)
+                        .ThenBy(p => p.Id)
+                        .FirstOrDefault()!)!; // one product per root
+            }
+            else
+            {
+                // If no filters are applied, return only default variant unless explicitly asking for all variants
+                resultQuery = parameters.AllVariants ? baseQuery : baseQuery.Where(x => x.Default);
+            }
 
-        // Count before paging
-        var totalCount = await resultQuery.Select(x => x.Id).CountAsync(cancellationToken: cancellationToken);
+            // Paging
+            var pageIndex = parameters.CurrentPage - 1;
+            var pageSize = parameters.AmountPerPage;
 
-        // Order for consistent paging window
-        var orderedQuery = ApplyOrdering(resultQuery, parameters.OrderBy);
-        var orderedIds = await orderedQuery
-            .Skip(pageIndex * pageSize)
-            .Take(pageSize)
-            .Select(x => x.Id)
-            .ToListAsync(cancellationToken: cancellationToken);
+            // Count before paging
+            var totalCount = await resultQuery.Select(x => x.Id).CountAsync(cancellationToken: cancellationToken);
 
-        // Materialize items with requested Includes
-        IQueryable<Product> itemsQuery = merchDbContext.Products
-            .Where(p => orderedIds.Contains(p.Id));
-        itemsQuery = itemsQuery
-            .Include(x => x.ProductRoot)
-            .ThenInclude(x => x.Categories);
+            // Order for consistent paging window
+            var orderedQuery = ApplyOrdering(resultQuery, parameters.OrderBy);
+            var orderedIds = await orderedQuery
+                .Skip(pageIndex * pageSize)
+                .Take(pageSize)
+                .Select(x => x.Id)
+                .ToListAsync(cancellationToken: cancellationToken);
 
-        if (parameters.FilterKeys?.Any() == true)
-        {
-            itemsQuery = itemsQuery.Include(x => x.Filters);
-        }
+            // Materialize items with requested Includes
+            IQueryable<Product> itemsQuery = db.Products
+                .Where(p => orderedIds.Contains(p.Id));
+            itemsQuery = itemsQuery
+                .Include(x => x.ProductRoot)
+                .ThenInclude(x => x.Categories);
 
-        if (parameters.IncludeProductWarehouses)
-        {
-            itemsQuery = itemsQuery.Include(x => x.ProductWarehouses);
-        }
+            if (parameters.FilterKeys?.Any() == true)
+            {
+                itemsQuery = itemsQuery.Include(x => x.Filters);
+            }
 
-        if (parameters.NoTracking)
-        {
-            itemsQuery = itemsQuery.AsNoTracking();
-        }
+            if (parameters.IncludeProductWarehouses)
+            {
+                itemsQuery = itemsQuery.Include(x => x.ProductWarehouses);
+            }
 
-        // Ensure deterministic ordering of the final result set
-        var items = await ApplyOrdering(itemsQuery, parameters.OrderBy)
-            .ToListAsync(cancellationToken: cancellationToken);
+            if (parameters.NoTracking)
+            {
+                itemsQuery = itemsQuery.AsNoTracking();
+            }
 
-        return new PaginatedList<Product>(items, totalCount, parameters.CurrentPage, parameters.AmountPerPage);
+            // Ensure deterministic ordering of the final result set
+            var items = await ApplyOrdering(itemsQuery, parameters.OrderBy)
+                .ToListAsync(cancellationToken: cancellationToken);
+
+            return new PaginatedList<Product>(items, totalCount, parameters.CurrentPage, parameters.AmountPerPage);
+        });
+        scope.Complete();
+        return result;
     }
 
     /// <summary>
@@ -1001,40 +1084,46 @@ public class ProductService(
     /// <returns></returns>
     public async Task<PaginatedList<ProductRoot>> QueryProductRoots(ProductRootQueryParameters parameters, CancellationToken cancellationToken = default)
     {
-        var query =
-            merchDbContext.RootProducts
-                .Include(x => x.Categories)
-                .Include(x => x.ProductType)
-                .AsQueryable();
-
-        if (parameters.NoTracking)
+        using var scope = _efCoreScopeProvider.CreateScope();
+        var result = await scope.ExecuteWithContextAsync(async db =>
         {
-            query = query.AsNoTracking();
-        }
+            var query =
+                db.RootProducts
+                    .Include(x => x.Categories)
+                    .Include(x => x.ProductType)
+                    .AsQueryable();
 
-        if (parameters.ProductTypeKey != null)
-        {
-            query = query.Where(x => x.ProductType.Id == parameters.ProductTypeKey);
-        }
+            if (parameters.NoTracking)
+            {
+                query = query.AsNoTracking();
+            }
 
-        if (parameters.CategoryIds?.Any() == true)
-        {
-            query = query.Where(x => x.Categories.Any(pc => parameters.CategoryIds.Contains(pc.Id)));
-        }
+            if (parameters.ProductTypeKey != null)
+            {
+                query = query.Where(x => x.ProductType.Id == parameters.ProductTypeKey);
+            }
 
-        // Paging
-        var pageIndex = parameters.CurrentPage - 1;
-        var pageSize = parameters.AmountPerPage;
+            if (parameters.CategoryIds?.Any() == true)
+            {
+                query = query.Where(x => x.Categories.Any(pc => parameters.CategoryIds.Contains(pc.Id)));
+            }
 
-        var totalCount = await query.AsSplitQuery().Select(x => x.Id).CountAsync(cancellationToken: cancellationToken);
+            // Paging
+            var pageIndex = parameters.CurrentPage - 1;
+            var pageSize = parameters.AmountPerPage;
 
-        var items = await query
-            .AsSplitQuery()
-            .Skip(pageIndex * pageSize)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken: cancellationToken);
+            var totalCount = await query.AsSplitQuery().Select(x => x.Id).CountAsync(cancellationToken: cancellationToken);
 
-        return new PaginatedList<ProductRoot>(items, totalCount, parameters.CurrentPage, parameters.AmountPerPage);
+            var items = await query
+                .AsSplitQuery()
+                .Skip(pageIndex * pageSize)
+                .Take(pageSize)
+                .ToListAsync(cancellationToken: cancellationToken);
+
+            return new PaginatedList<ProductRoot>(items, totalCount, parameters.CurrentPage, parameters.AmountPerPage);
+        });
+        scope.Complete();
+        return result;
     }
 }
 

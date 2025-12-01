@@ -68,4 +68,40 @@ public static class CrudResultExtensions
             logger.LogWarning("{Message}", warningMessage.Message);
         }
     }
+
+    /// <summary>
+    /// Adds an error message to the CrudResult
+    /// </summary>
+    public static void AddErrorMessage<T>(this CrudResult<T> crudResult, string message)
+    {
+        crudResult.Messages.Add(new ResultMessage
+        {
+            Message = message,
+            ResultMessageType = ResultMessageType.Error
+        });
+    }
+
+    /// <summary>
+    /// Adds a warning message to the CrudResult
+    /// </summary>
+    public static void AddWarningMessage<T>(this CrudResult<T> crudResult, string message)
+    {
+        crudResult.Messages.Add(new ResultMessage
+        {
+            Message = message,
+            ResultMessageType = ResultMessageType.Warning
+        });
+    }
+
+    /// <summary>
+    /// Adds a success message to the CrudResult
+    /// </summary>
+    public static void AddSuccessMessage<T>(this CrudResult<T> crudResult, string message)
+    {
+        crudResult.Messages.Add(new ResultMessage
+        {
+            Message = message,
+            ResultMessageType = ResultMessageType.Success
+        });
+    }
 }

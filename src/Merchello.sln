@@ -17,8 +17,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Merchello", "Merchello\Merc
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Merchello.Core", "Merchello.Core\Merchello.Core.csproj", "{DED3A124-90A9-42F4-BE91-EADEFAAC855A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Merchello.Tests", "Merchello.Tests\Merchello.Tests.csproj", "{76C6935A-F430-490F-8104-72CA628830B5}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

@@ -31,7 +31,7 @@ public static class AccountingExtensions
     /// <returns></returns>
     public static List<string> ValidateLineItem(this LineItem newLineItem)
     {
-        var list = new List<string>();
+        List<string> list = [];
         if (string.IsNullOrWhiteSpace(newLineItem.Sku))
         {
             list.Add("Missing SKU");
@@ -52,7 +52,7 @@ public static class AccountingExtensions
     /// <returns></returns>
     public static List<string> ValidateAdjustment(this Adjustment newAdjustment)
     {
-        var list = new List<string>();
+        List<string> list = [];
 
         if (newAdjustment.Amount == 0)
         {

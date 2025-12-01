@@ -7,14 +7,17 @@ using Merchello.Core.Shipping.Services.Interfaces;
 using Merchello.Core.Warehouses.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Umbraco.Cms.Persistence.EFCore.Scoping;
 
 namespace Merchello.Core.Shipping.Services;
 
 public class ShippingService(
-    IMerchDbContext context,
+    IEFCoreScopeProvider<MerchelloDbContext> efCoreScopeProvider,
     IWarehouseService warehouseService,
     ILogger<ShippingService> logger) : IShippingService
 {
+    private readonly IEFCoreScopeProvider<MerchelloDbContext> _efCoreScopeProvider = efCoreScopeProvider;
+
     /// <summary>
     /// Gets shipping options for a basket, grouping products by warehouse and shipping option availability.
     /// Products from the same warehouse with different shipping restrictions are split into separate groups,
@@ -51,27 +54,30 @@ public class ShippingService(
             .ToList();
 
         // Load products with necessary relationships for warehouse selection
-        var products = await context.Products
-            .Include(p => p.ProductRoot)
-                .ThenInclude(pr => pr!.ProductRootWarehouses.OrderBy(prw => prw.PriorityOrder))
-                    .ThenInclude(prw => prw.Warehouse)
-                        .ThenInclude(w => w!.ServiceRegions)
-            .Include(p => p.ProductRoot)
-                .ThenInclude(pr => pr!.ProductRootWarehouses)
-                    .ThenInclude(prw => prw.Warehouse)
-                        .ThenInclude(w => w!.ShippingOptions)
-                            .ThenInclude(so => so.ShippingCosts)
-            .Include(p => p.ProductWarehouses)
-                .ThenInclude(pw => pw.Warehouse)
-            .Include(p => p.ShippingOptions)
-            .Include(p => p.AllowedShippingOptions)
-            .Include(p => p.ExcludedShippingOptions)
-            .Where(p => productIds.Contains(p.Id))
-            .AsSplitQuery()
-            .ToDictionaryAsync(p => p.Id, cancellationToken);
+        using var scope = _efCoreScopeProvider.CreateScope();
+        var products = await scope.ExecuteWithContextAsync(async db =>
+            await db.Products
+                .Include(p => p.ProductRoot)
+                    .ThenInclude(pr => pr!.ProductRootWarehouses.OrderBy(prw => prw.PriorityOrder))
+                        .ThenInclude(prw => prw.Warehouse)
+                            .ThenInclude(w => w!.ServiceRegions)
+                .Include(p => p.ProductRoot)
+                    .ThenInclude(pr => pr!.ProductRootWarehouses)
+                        .ThenInclude(prw => prw.Warehouse)
+                            .ThenInclude(w => w!.ShippingOptions)
+                                .ThenInclude(so => so.ShippingCosts)
+                .Include(p => p.ProductWarehouses)
+                    .ThenInclude(pw => pw.Warehouse)
+                .Include(p => p.ShippingOptions)
+                .Include(p => p.AllowedShippingOptions)
+                .Include(p => p.ExcludedShippingOptions)
+                .Where(p => productIds.Contains(p.Id))
+                .AsSplitQuery()
+                .ToDictionaryAsync(p => p.Id, cancellationToken));
+        scope.Complete();
 
-        var warehouseGroups = new List<WarehouseShippingGroup>();
-        var warehouseSelectionFailures = new List<string>();
+        List<WarehouseShippingGroup> warehouseGroups = [];
+        List<string> warehouseSelectionFailures = [];
 
         // For each line item, select the best warehouse and determine shipping options
         foreach (var lineItem in basket.LineItems.Where(li => li.ProductId.HasValue))
@@ -274,11 +280,15 @@ public class ShippingService(
             cancellationToken);
 
         var shippingOptionIds = selectedShippingOptions.Values.ToList();
-        var shippingOptions = await context.ShippingOptions
-            .Where(so => shippingOptionIds.Contains(so.Id))
-            .ToDictionaryAsync(so => so.Id, cancellationToken);
 
-        var shipmentSummaries = new List<ShipmentSummary>();
+        using var scope = _efCoreScopeProvider.CreateScope();
+        var shippingOptions = await scope.ExecuteWithContextAsync(async db =>
+            await db.ShippingOptions
+                .Where(so => shippingOptionIds.Contains(so.Id))
+                .ToDictionaryAsync(so => so.Id, cancellationToken));
+        scope.Complete();
+
+        List<ShipmentSummary> shipmentSummaries = [];
 
         foreach (var warehouseGroup in shippingResult.WarehouseGroups)
         {
@@ -338,9 +348,13 @@ public class ShippingService(
 
     public async Task<List<ShippingOption>> GetAllShippingOptions(CancellationToken cancellationToken = default)
     {
-        return await context.ShippingOptions
-            .OrderBy(so => so.Name)
-            .ToListAsync(cancellationToken);
+        using var scope = _efCoreScopeProvider.CreateScope();
+        var result = await scope.ExecuteWithContextAsync(async db =>
+            await db.ShippingOptions
+                .OrderBy(so => so.Name)
+                .ToListAsync(cancellationToken));
+        scope.Complete();
+        return result;
     }
 
     /// <summary>
@@ -376,4 +390,3 @@ public class ShippingService(
     }
 
 }
-

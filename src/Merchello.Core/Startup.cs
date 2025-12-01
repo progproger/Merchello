@@ -22,76 +22,37 @@ using Merchello.Core.Warehouses.Services;
 using Merchello.Core.Warehouses.Services.Interfaces;
 using Merchello.Core.Accounting.Factories;
 using Merchello.Core.Warehouses.Factories;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Umbraco.Cms.Core.DependencyInjection;
+using Umbraco.Cms.Persistence.EFCore;
+using Umbraco.Extensions;
 
 namespace Merchello.Core;
 
 public static class Startup
 {
-    /*
-    public static void AddMerch(this WebApplication app)
+    /// <summary>
+    /// Adds Merchello services to the Umbraco builder
+    /// </summary>
+    public static IUmbracoBuilder AddMerch(this IUmbracoBuilder builder, IEnumerable<Assembly>? pluginAssemblies = null)
     {
-        using (var scope = app.Services.CreateScope())
+        // Register MerchelloDbContext with Umbraco's database provider (automatically uses same DB as Umbraco)
+        // TODO: Update to new overload when upgrading to Umbraco 18
+#pragma warning disable CS0618 // Type or member is obsolete
+        builder.Services.AddUmbracoDbContext<MerchelloDbContext>((serviceProvider, options) =>
         {
-            var dbContext = scope.ServiceProvider.GetRequiredService<MerchDbContext>();
-            //var mediatr = scope.ServiceProvider.GetRequiredService<IMediator>();
-            try
-            {
-                if (dbContext.Database.GetPendingMigrations().Any())
-                {
-                    dbContext.Database.Migrate();
-                }
+            options.UseUmbracoDatabaseProvider(serviceProvider);
+        });
+#pragma warning restore CS0618
 
-                //await dbContext.SeedData(mediatr);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error during startup trying to do Db migrations");
-            }
-        }
-    }
-    */
+        // Configure Merch settings
+        builder.Services.Configure<MerchSettings>(builder.Config.GetSection("Merch"));
+        builder.Services.Configure<CacheOptions>(builder.Config.GetSection("Merch:Cache"));
 
-    public static void AddMerch(this WebApplicationBuilder builder, IEnumerable<Assembly>? pluginAssemblies = null)
-    {
-        var merchSettings = new MerchSettings();
-        builder.Configuration.GetSection("Merch").Bind(merchSettings);
-        builder.Services.Configure<MerchSettings>(builder.Configuration.GetSection("Merch"));
-
-        var databaseProvider = merchSettings.DatabaseProvider;
-        if (databaseProvider != null)
-        {
-            switch (databaseProvider.ToLower())
-            {
-                case "sqlite":
-                    builder.Services.AddDbContext<SqliteMerchDbContext>();
-                    builder.Services.AddScoped<IMerchDbContext, SqliteMerchDbContext>();
-                    break;
-                case "postgresql":
-                    builder.Services.AddDbContext<PostgreSqlMerchDbContext>();
-                    builder.Services.AddScoped<IMerchDbContext, PostgreSqlMerchDbContext>();
-                    break;
-                case "sqlserver":
-                    builder.Services.AddDbContext<MerchDbContext>();
-                    builder.Services.AddScoped<IMerchDbContext, MerchDbContext>();
-                    break;
-                default:
-                    throw new Exception("Unable to find database provider in appSettings");
-            }
-        }
-        else
-        {
-            throw new Exception("DatabaseProvider not configured in Merch settings");
-        }
-
+        // Caching
         builder.Services.AddMemoryCache();
         builder.Services.AddHybridCache();
-
-        // Configure cache options (will use defaults from CacheOptions class if section doesn't exist)
-        builder.Services.Configure<CacheOptions>(builder.Configuration.GetSection("Merch:Cache"));
 
         builder.Services.AddSingleton<CacheService>();
         builder.Services.AddScoped<ExtensionManager>();
@@ -130,7 +91,7 @@ public static class Startup
         builder.Services.AddScoped<IProductService, ProductService>();
         builder.Services.AddScoped<ITaxService, TaxService>();
 
-
+        // Plugin assemblies for extension scanning
         var assembliesToScan = (pluginAssemblies ?? Enumerable.Empty<Assembly>())
             .Distinct()
             .ToList();
@@ -141,5 +102,7 @@ public static class Startup
         }
 
         AssemblyManager.SetAssemblies(assembliesToScan.ToArray());
+
+        return builder;
     }
 }

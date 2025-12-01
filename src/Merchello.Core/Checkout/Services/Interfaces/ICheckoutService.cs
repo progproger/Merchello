@@ -13,7 +13,8 @@ public interface ICheckoutService
     /// <param name="basket"></param>
     /// <param name="newLineItem"></param>
     /// <param name="countryCode"></param>
-    void AddToBasket(Basket basket, LineItem newLineItem, string countryCode);
+    /// <param name="cancellationToken"></param>
+    Task AddToBasketAsync(Basket basket, LineItem newLineItem, string countryCode, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Add adjustment to the basket
@@ -21,7 +22,8 @@ public interface ICheckoutService
     /// <param name="basket"></param>
     /// <param name="newAdjustment"></param>
     /// <param name="countryCode"></param>
-    void AddToBasket(Basket basket, Adjustment newAdjustment, string countryCode);
+    /// <param name="cancellationToken"></param>
+    Task AddToBasketAsync(Basket basket, Adjustment newAdjustment, string countryCode, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Remove item from basket
@@ -29,7 +31,8 @@ public interface ICheckoutService
     /// <param name="basket"></param>
     /// <param name="lineItemId"></param>
     /// <param name="countryCode"></param>
-    void RemoveFromBasket(Basket basket, Guid lineItemId, string countryCode);
+    /// <param name="cancellationToken"></param>
+    Task RemoveFromBasketAsync(Basket basket, Guid lineItemId, string countryCode, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Calculate the basket if there are any changes
@@ -38,7 +41,8 @@ public interface ICheckoutService
     /// <param name="countryCode">Defaults to GB</param>
     /// <param name="defaultTaxRate">Defaults to 20%</param>
     /// <param name="isShippingTaxable">Should we tax the shipping, defaults to true</param>
-    void CalculateBasket(Basket basket, string countryCode = "GB", decimal defaultTaxRate = 20, bool isShippingTaxable = true);
+    /// <param name="cancellationToken"></param>
+    Task CalculateBasketAsync(Basket basket, string countryCode = "GB", decimal defaultTaxRate = 20, bool isShippingTaxable = true, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Get basket for a customer or anonymous user

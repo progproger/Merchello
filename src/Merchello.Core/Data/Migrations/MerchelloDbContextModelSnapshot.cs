@@ -3,66 +3,111 @@ using System;
 using Merchello.Core.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace Merchello.Core.Data.Migrations.PostgreSql
+namespace Merchello.Core.Data.Migrations
 {
-    [DbContext(typeof(PostgreSqlMerchDbContext))]
-    partial class PostgreSqlMerchDbContextModelSnapshot : ModelSnapshot
+    [DbContext(typeof(MerchelloDbContext))]
+    partial class MerchelloDbContextModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.10")
-                .HasAnnotation("Relational:MaxIdentifierLength", 63);
+                .HasAnnotation("ProductVersion", "10.0.0")
+                .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
-            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("MerchProductFiltersProducts", b =>
+                {
+                    b.Property<Guid>("FilterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("FilterId", "ProductId");
+
+                    b.HasIndex("ProductId");
+
+                    b.ToTable("MerchProductFiltersProducts");
+                });
+
+            modelBuilder.Entity("MerchProductRootCategories", b =>
+                {
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProductRootId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("CategoryId", "ProductRootId");
+
+                    b.HasIndex("ProductRootId");
+
+                    b.ToTable("MerchProductRootCategories");
+                });
+
+            modelBuilder.Entity("MerchProductRootShippingOptions", b =>
+                {
+                    b.Property<Guid>("ProductRootId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ShippingOptionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("ProductRootId", "ShippingOptionId");
+
+                    b.HasIndex("ShippingOptionId");
+
+                    b.ToTable("MerchProductRootShippingOptions");
+                });
 
             modelBuilder.Entity("Merchello.Core.Accounting.Models.Invoice", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("AdjustedSubTotal")
                         .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("Adjustments")
                         .IsRequired()
                         .HasMaxLength(3000)
-                        .HasColumnType("character varying(3000)");
+                        .HasColumnType("nvarchar(3000)");
 
                     b.Property<Guid?>("CustomerId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("Discount")
                         .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("Notes")
                         .IsRequired()
                         .HasMaxLength(3000)
-                        .HasColumnType("character varying(3000)");
+                        .HasColumnType("nvarchar(3000)");
 
                     b.Property<decimal>("SubTotal")
                         .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("Tax")
                         .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("TaxRounding")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<decimal>("Total")
                         .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");
 
@@ -73,59 +118,59 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("Amount")
                         .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("DateCreated")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("DateUpdated")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("DependantLineItemSku")
-                        .HasColumnType("text");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ExtendedData")
                         .IsRequired()
                         .HasMaxLength(3000)
-                        .HasColumnType("character varying(3000)");
+                        .HasColumnType("nvarchar(3000)");
 
                     b.Property<Guid?>("InvoiceId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("IsTaxable")
-                        .HasColumnType("boolean");
+                        .HasColumnType("bit");
 
                     b.Property<int>("LineItemType")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<string>("Name")
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<Guid?>("OrderId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal?>("OriginalAmount")
                         .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<Guid?>("ProductId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("Quantity")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<string>("Sku")
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<decimal>("TaxRate")
                         .HasPrecision(5, 2)
-                        .HasColumnType("numeric(5,2)");
+                        .HasColumnType("decimal(5,2)");
 
                     b.HasKey("Id");
 
@@ -140,60 +185,60 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("CancellationReason")
                         .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<DateTime?>("CancelledDate")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("CompletedDate")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("DateCreated")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("DateUpdated")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime2");
 
                     b.Property<decimal?>("DeliveryDateSurcharge")
-                        .HasColumnType("numeric");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("InternalNotes")
                         .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
+                        .HasColumnType("nvarchar(2000)");
 
                     b.Property<Guid>("InvoiceId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<bool?>("IsDeliveryDateGuaranteed")
-                        .HasColumnType("boolean");
+                        .HasColumnType("bit");
 
                     b.Property<DateTime?>("ProcessingStartedDate")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("RequestedDeliveryDate")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("ShippedDate")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime2");
 
                     b.Property<decimal>("ShippingCost")
                         .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<Guid>("ShippingOptionId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("Status")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasDefaultValue(0);
 
                     b.Property<Guid>("WarehouseId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
@@ -206,36 +251,36 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("Amount")
                         .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("DateCreated")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Description")
                         .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("FraudResponse")
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<Guid>("InvoiceId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("PaymentMethod")
                         .HasMaxLength(350)
-                        .HasColumnType("character varying(350)");
+                        .HasColumnType("nvarchar(350)");
 
                     b.Property<bool>("PaymentSuccess")
-                        .HasColumnType("boolean");
+                        .HasColumnType("bit");
 
                     b.Property<string>("TransactionId")
                         .HasMaxLength(350)
-                        .HasColumnType("character varying(350)");
+                        .HasColumnType("nvarchar(350)");
 
                     b.HasKey("Id");
 
@@ -248,21 +293,21 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("DateCreated")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("DateUpdated")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Name")
                         .HasMaxLength(300)
-                        .HasColumnType("character varying(300)");
+                        .HasColumnType("nvarchar(300)");
 
                     b.Property<decimal>("TaxPercentage")
                         .HasPrecision(5, 2)
-                        .HasColumnType("numeric(5,2)");
+                        .HasColumnType("decimal(5,2)");
 
                     b.HasKey("Id");
 
@@ -273,71 +318,71 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("AdjustedSubTotal")
                         .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("Adjustments")
                         .IsRequired()
                         .HasMaxLength(3000)
-                        .HasColumnType("character varying(3000)");
+                        .HasColumnType("nvarchar(3000)");
 
                     b.Property<string>("BillingAddress")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("Currency")
                         .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
+                        .HasColumnType("nvarchar(10)");
 
                     b.Property<string>("CurrencySymbol")
                         .HasMaxLength(3)
-                        .HasColumnType("character varying(3)");
+                        .HasColumnType("nvarchar(3)");
 
                     b.Property<Guid?>("CustomerId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("DateCreated")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("DateUpdated")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime2");
 
                     b.Property<decimal>("Discount")
                         .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("LineItems")
                         .IsRequired()
                         .HasMaxLength(3000)
-                        .HasColumnType("character varying(3000)");
+                        .HasColumnType("nvarchar(3000)");
 
                     b.Property<decimal>("Shipping")
                         .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("ShippingAddress")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<decimal>("SubTotal")
                         .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("Tax")
                         .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("TaxRounding")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<decimal>("Total")
                         .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");
 
@@ -348,122 +393,122 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("AvailableForPurchase")
-                        .HasColumnType("boolean");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("CanPurchase")
-                        .HasColumnType("boolean");
+                        .HasColumnType("bit");
 
                     b.Property<decimal>("CostOfGoods")
                         .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("DateCreated")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("DateUpdated")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime2");
 
                     b.Property<bool>("Default")
-                        .HasColumnType("boolean");
+                        .HasColumnType("bit");
 
                     b.Property<string>("Description")
                         .HasMaxLength(5000)
-                        .HasColumnType("character varying(5000)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("ExcludeFromCustomLabels")
-                        .HasColumnType("boolean");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("ExcludeRootProductImages")
-                        .HasColumnType("boolean");
+                        .HasColumnType("bit");
 
                     b.Property<string>("Gtin")
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
+                        .HasColumnType("nvarchar(150)");
 
                     b.Property<string>("Images")
                         .IsRequired()
                         .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("MetaDescription")
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<bool>("NoIndex")
-                        .HasColumnType("boolean");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("OnSale")
-                        .HasColumnType("boolean");
+                        .HasColumnType("bit");
 
                     b.Property<string>("OpenGraphImage")
-                        .HasColumnType("text");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PageTitle")
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<decimal?>("PreviousPrice")
                         .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("Price")
                         .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<Guid>("ProductRootId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("RemoveFromFeed")
-                        .HasColumnType("boolean");
+                        .HasColumnType("bit");
 
                     b.Property<int>("ShippingRestrictionMode")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasDefaultValue(0);
 
                     b.Property<string>("ShoppingFeedColour")
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("ShoppingFeedDescription")
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("ShoppingFeedMaterial")
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("ShoppingFeedSize")
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("ShoppingFeedTitle")
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("Sku")
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
+                        .HasColumnType("nvarchar(150)");
 
                     b.Property<string>("SupplierSku")
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
+                        .HasColumnType("nvarchar(150)");
 
                     b.Property<string>("Url")
                         .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("VariantOptionsKey")
                         .HasMaxLength(1500)
-                        .HasColumnType("character varying(1500)");
+                        .HasColumnType("nvarchar(1500)");
 
                     b.HasKey("Id");
 
@@ -478,12 +523,12 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("nvarchar(500)");
 
                     b.HasKey("Id");
 
@@ -494,26 +539,26 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("HexColour")
                         .IsRequired()
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
+                        .HasColumnType("nvarchar(150)");
 
                     b.Property<Guid?>("Image")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<Guid>("ProductFilterGroupId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("SortOrder")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -526,15 +571,15 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<int>("SortOrder")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -545,52 +590,52 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("GoogleShoppingFeedCategory")
                         .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("HsCode")
                         .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
+                        .HasColumnType("nvarchar(10)");
 
                     b.Property<string>("ProductOptions")
                         .IsRequired()
                         .HasMaxLength(3000)
-                        .HasColumnType("character varying(3000)");
+                        .HasColumnType("nvarchar(3000)");
 
                     b.Property<Guid>("ProductTypeId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("RootImages")
                         .IsRequired()
                         .HasMaxLength(3000)
-                        .HasColumnType("character varying(3000)");
+                        .HasColumnType("nvarchar(3000)");
 
                     b.Property<string>("RootName")
-                        .HasColumnType("text");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("RootUrl")
                         .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("SellingPoints")
                         .IsRequired()
                         .HasMaxLength(1500)
-                        .HasColumnType("character varying(1500)");
+                        .HasColumnType("nvarchar(1500)");
 
                     b.Property<Guid>("TaxGroupId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Videos")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<decimal>("Weight")
                         .HasPrecision(10, 2)
-                        .HasColumnType("numeric(10,2)");
+                        .HasColumnType("decimal(10,2)");
 
                     b.HasKey("Id");
 
@@ -604,13 +649,13 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
             modelBuilder.Entity("Merchello.Core.Products.Models.ProductRootWarehouse", b =>
                 {
                     b.Property<Guid>("ProductRootId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("WarehouseId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("PriorityOrder")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.HasKey("ProductRootId", "WarehouseId");
 
@@ -623,13 +668,13 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Alias")
-                        .HasColumnType("text");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Name")
-                        .HasColumnType("text");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -639,28 +684,28 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
             modelBuilder.Entity("Merchello.Core.Products.Models.ProductWarehouse", b =>
                 {
                     b.Property<Guid>("ProductId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("WarehouseId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int?>("ReorderPoint")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<int?>("ReorderQuantity")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<int>("ReservedStock")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasDefaultValue(0);
 
                     b.Property<int>("Stock")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<bool>("TrackStock")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasDefaultValue(true);
 
                     b.HasKey("ProductId", "WarehouseId");
@@ -674,19 +719,19 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal?>("CostOfGoods")
-                        .HasColumnType("numeric");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal?>("Price")
-                        .HasColumnType("numeric");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<Guid>("ProductId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("WarehouseId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
@@ -701,44 +746,44 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime?>("ActualDeliveryDate")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Address")
                         .IsRequired()
                         .HasMaxLength(1500)
-                        .HasColumnType("character varying(1500)");
+                        .HasColumnType("nvarchar(1500)");
 
                     b.Property<string>("Carrier")
-                        .HasColumnType("text");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid>("CourierId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<bool?>("IsDeliveryDateGuaranteed")
-                        .HasColumnType("boolean");
+                        .HasColumnType("bit");
 
                     b.Property<string>("LineItems")
                         .IsRequired()
                         .HasMaxLength(3000)
-                        .HasColumnType("character varying(3000)");
+                        .HasColumnType("nvarchar(3000)");
 
                     b.Property<Guid>("OrderId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime?>("RequestedDeliveryDate")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime2");
 
                     b.Property<Guid>("SupplierId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("TrackingNumber")
-                        .HasColumnType("text");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("TrackingUrl")
-                        .HasColumnType("text");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -753,7 +798,7 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("Cost")
                         .HasColumnType("decimal(18,2)");
@@ -761,14 +806,14 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
                     b.Property<string>("CountryCode")
                         .IsRequired()
                         .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
+                        .HasColumnType("nvarchar(10)");
 
                     b.Property<Guid>("ShippingOptionId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("StateOrProvinceCode")
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("nvarchar(50)");
 
                     b.HasKey("Id");
 
@@ -781,58 +826,58 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("AllowedDaysOfWeek")
-                        .HasColumnType("text");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("AllowsDeliveryDateSelection")
-                        .HasColumnType("boolean");
+                        .HasColumnType("bit");
 
                     b.Property<string>("CalculationMethod")
                         .HasMaxLength(1500)
-                        .HasColumnType("character varying(1500)");
+                        .HasColumnType("nvarchar(1500)");
 
                     b.Property<DateTime>("CreateDate")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("DaysFrom")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<int>("DaysTo")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<string>("DeliveryDatePricingMethod")
-                        .HasColumnType("text");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal?>("FixedCost")
                         .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<bool>("IsDeliveryDateGuaranteed")
-                        .HasColumnType("boolean");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsNextDay")
-                        .HasColumnType("boolean");
+                        .HasColumnType("bit");
 
                     b.Property<int?>("MaxDeliveryDays")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<int?>("MinDeliveryDays")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<string>("Name")
                         .HasMaxLength(350)
-                        .HasColumnType("character varying(350)");
+                        .HasColumnType("nvarchar(350)");
 
                     b.Property<TimeSpan?>("NextDayCutOffTime")
-                        .HasColumnType("interval");
+                        .HasColumnType("time");
 
                     b.Property<DateTime>("UpdateDate")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime2");
 
                     b.Property<Guid>("WarehouseId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
@@ -844,11 +889,11 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
             modelBuilder.Entity("Merchello.Core.Shipping.Models.ShippingOptionCountry", b =>
                 {
                     b.Property<Guid>("ShippingOptionId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("CountryCode")
                         .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
+                        .HasColumnType("nvarchar(10)");
 
                     b.HasKey("ShippingOptionId", "CountryCode");
 
@@ -859,29 +904,29 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreateDate")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("DisplayName")
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
+                        .HasColumnType("nvarchar(256)");
 
                     b.Property<bool>("IsEnabled")
-                        .HasColumnType("boolean");
+                        .HasColumnType("bit");
 
                     b.Property<string>("ProviderKey")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
+                        .HasColumnType("nvarchar(256)");
 
                     b.Property<string>("SettingsJson")
                         .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)");
+                        .HasColumnType("nvarchar(4000)");
 
                     b.Property<DateTime>("UpdateDate")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
@@ -892,34 +937,34 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Address")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("AutomationMethod")
                         .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("Code")
-                        .HasColumnType("text");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("DateCreated")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("DateUpdated")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("ExtendedData")
                         .IsRequired()
                         .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("Name")
                         .HasMaxLength(250)
-                        .HasColumnType("character varying(250)");
+                        .HasColumnType("nvarchar(250)");
 
                     b.HasKey("Id");
 
@@ -930,22 +975,22 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("CountryCode")
                         .IsRequired()
                         .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
+                        .HasColumnType("nvarchar(10)");
 
                     b.Property<bool>("IsExcluded")
-                        .HasColumnType("boolean");
+                        .HasColumnType("bit");
 
                     b.Property<string>("StateOrProvinceCode")
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<Guid>("WarehouseId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
@@ -954,58 +999,13 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
                     b.ToTable("MerchWarehouseServiceRegions", (string)null);
                 });
 
-            modelBuilder.Entity("MerchProductFiltersProducts", b =>
-                {
-                    b.Property<Guid>("FilterId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ProductId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("FilterId", "ProductId");
-
-                    b.HasIndex("ProductId");
-
-                    b.ToTable("MerchProductFiltersProducts");
-                });
-
-            modelBuilder.Entity("MerchProductRootCategories", b =>
-                {
-                    b.Property<Guid>("CategoryId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ProductRootId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("CategoryId", "ProductRootId");
-
-                    b.HasIndex("ProductRootId");
-
-                    b.ToTable("MerchProductRootCategories");
-                });
-
-            modelBuilder.Entity("MerchProductRootShippingOptions", b =>
-                {
-                    b.Property<Guid>("ProductRootId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ShippingOptionId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("ProductRootId", "ShippingOptionId");
-
-                    b.HasIndex("ShippingOptionId");
-
-                    b.ToTable("MerchProductRootShippingOptions");
-                });
-
             modelBuilder.Entity("ProductShippingOption", b =>
                 {
                     b.Property<Guid>("AllowedShippingOptionsId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("ProductId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("AllowedShippingOptionsId", "ProductId");
 
@@ -1017,16 +1017,61 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
             modelBuilder.Entity("ProductShippingOption1", b =>
                 {
                     b.Property<Guid>("ExcludedShippingOptionsId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("Product1Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("ExcludedShippingOptionsId", "Product1Id");
 
                     b.HasIndex("Product1Id");
 
                     b.ToTable("MerchProductExcludedShippingOptions", (string)null);
+                });
+
+            modelBuilder.Entity("MerchProductFiltersProducts", b =>
+                {
+                    b.HasOne("Merchello.Core.Products.Models.ProductFilter", null)
+                        .WithMany()
+                        .HasForeignKey("FilterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Merchello.Core.Products.Models.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MerchProductRootCategories", b =>
+                {
+                    b.HasOne("Merchello.Core.Products.Models.ProductCategory", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Merchello.Core.Products.Models.ProductRoot", null)
+                        .WithMany()
+                        .HasForeignKey("ProductRootId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MerchProductRootShippingOptions", b =>
+                {
+                    b.HasOne("Merchello.Core.Products.Models.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductRootId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Merchello.Core.Shipping.Models.ShippingOption", null)
+                        .WithMany()
+                        .HasForeignKey("ShippingOptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Merchello.Core.Accounting.Models.LineItem", b =>
@@ -1056,37 +1101,37 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
                     b.OwnsOne("Merchello.Core.Locality.Models.Address", "ShippingAddress", b1 =>
                         {
                             b1.Property<Guid>("OrderId")
-                                .HasColumnType("uuid");
+                                .HasColumnType("uniqueidentifier");
 
                             b1.Property<string>("AddressOne")
-                                .HasColumnType("text");
+                                .HasColumnType("nvarchar(max)");
 
                             b1.Property<string>("AddressTwo")
-                                .HasColumnType("text");
+                                .HasColumnType("nvarchar(max)");
 
                             b1.Property<string>("Company")
-                                .HasColumnType("text");
+                                .HasColumnType("nvarchar(max)");
 
                             b1.Property<string>("Country")
-                                .HasColumnType("text");
+                                .HasColumnType("nvarchar(max)");
 
                             b1.Property<string>("CountryCode")
-                                .HasColumnType("text");
+                                .HasColumnType("nvarchar(max)");
 
                             b1.Property<string>("Email")
-                                .HasColumnType("text");
+                                .HasColumnType("nvarchar(max)");
 
                             b1.Property<string>("Name")
-                                .HasColumnType("text");
+                                .HasColumnType("nvarchar(max)");
 
                             b1.Property<string>("Phone")
-                                .HasColumnType("text");
+                                .HasColumnType("nvarchar(max)");
 
                             b1.Property<string>("PostalCode")
-                                .HasColumnType("text");
+                                .HasColumnType("nvarchar(max)");
 
                             b1.Property<string>("TownCity")
-                                .HasColumnType("text");
+                                .HasColumnType("nvarchar(max)");
 
                             b1.HasKey("OrderId");
 
@@ -1098,13 +1143,13 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
                             b1.OwnsOne("Merchello.Core.Locality.Models.CountyState", "CountyState", b2 =>
                                 {
                                     b2.Property<Guid>("AddressOrderId")
-                                        .HasColumnType("uuid");
+                                        .HasColumnType("uniqueidentifier");
 
                                     b2.Property<string>("Name")
-                                        .HasColumnType("text");
+                                        .HasColumnType("nvarchar(max)");
 
                                     b2.Property<string>("RegionCode")
-                                        .HasColumnType("text");
+                                        .HasColumnType("nvarchar(max)");
 
                                     b2.HasKey("AddressOrderId");
 
@@ -1114,7 +1159,8 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
                                         .HasForeignKey("AddressOrderId");
                                 });
 
-                            b1.Navigation("CountyState");
+                            b1.Navigation("CountyState")
+                                .IsRequired();
                         });
 
                     b.Navigation("Invoice");
@@ -1284,16 +1330,16 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
                     b.OwnsOne("Merchello.Core.Locality.Models.Country", "Country", b1 =>
                         {
                             b1.Property<Guid>("ShippingOptionCountryShippingOptionId")
-                                .HasColumnType("uuid");
+                                .HasColumnType("uniqueidentifier");
 
                             b1.Property<string>("ShippingOptionCountryCountryCode")
-                                .HasColumnType("character varying(10)");
+                                .HasColumnType("nvarchar(10)");
 
                             b1.Property<string>("CountryCode")
-                                .HasColumnType("text");
+                                .HasColumnType("nvarchar(max)");
 
                             b1.Property<string>("Name")
-                                .HasColumnType("text");
+                                .HasColumnType("nvarchar(max)");
 
                             b1.HasKey("ShippingOptionCountryShippingOptionId", "ShippingOptionCountryCountryCode");
 
@@ -1305,22 +1351,22 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
                             b1.OwnsMany("Merchello.Core.Locality.Models.CountyState", "CountyStates", b2 =>
                                 {
                                     b2.Property<Guid>("CountryShippingOptionCountryShippingOptionId")
-                                        .HasColumnType("uuid");
+                                        .HasColumnType("uniqueidentifier");
 
                                     b2.Property<string>("CountryShippingOptionCountryCountryCode")
-                                        .HasColumnType("character varying(10)");
+                                        .HasColumnType("nvarchar(10)");
 
                                     b2.Property<int>("Id")
                                         .ValueGeneratedOnAdd()
-                                        .HasColumnType("integer");
+                                        .HasColumnType("int");
 
-                                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b2.Property<int>("Id"));
+                                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b2.Property<int>("Id"));
 
                                     b2.Property<string>("Name")
-                                        .HasColumnType("text");
+                                        .HasColumnType("nvarchar(max)");
 
                                     b2.Property<string>("RegionCode")
-                                        .HasColumnType("text");
+                                        .HasColumnType("nvarchar(max)");
 
                                     b2.HasKey("CountryShippingOptionCountryShippingOptionId", "CountryShippingOptionCountryCountryCode", "Id");
 
@@ -1348,51 +1394,6 @@ namespace Merchello.Core.Data.Migrations.PostgreSql
                         .IsRequired();
 
                     b.Navigation("Warehouse");
-                });
-
-            modelBuilder.Entity("MerchProductFiltersProducts", b =>
-                {
-                    b.HasOne("Merchello.Core.Products.Models.ProductFilter", null)
-                        .WithMany()
-                        .HasForeignKey("FilterId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Merchello.Core.Products.Models.Product", null)
-                        .WithMany()
-                        .HasForeignKey("ProductId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("MerchProductRootCategories", b =>
-                {
-                    b.HasOne("Merchello.Core.Products.Models.ProductCategory", null)
-                        .WithMany()
-                        .HasForeignKey("CategoryId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Merchello.Core.Products.Models.ProductRoot", null)
-                        .WithMany()
-                        .HasForeignKey("ProductRootId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("MerchProductRootShippingOptions", b =>
-                {
-                    b.HasOne("Merchello.Core.Products.Models.Product", null)
-                        .WithMany()
-                        .HasForeignKey("ProductRootId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Merchello.Core.Shipping.Models.ShippingOption", null)
-                        .WithMany()
-                        .HasForeignKey("ShippingOptionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("ProductShippingOption", b =>

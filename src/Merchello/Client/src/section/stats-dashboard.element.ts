@@ -128,6 +128,11 @@ export class MerchelloStatsDashboardElement extends UmbElementMixin(LitElement) 
       uui-table {
         width: 100%;
       }
+
+      uui-badge {
+        vertical-align: middle;
+        --uui-badge-inset: 0;
+      }
     `,
   ];
 }

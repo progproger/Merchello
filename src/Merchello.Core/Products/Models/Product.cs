@@ -172,22 +172,22 @@ public class Product
     /// If empty, warehouse shipping options are used as the base.
     /// These can be overridden using AllowedShippingOptions or ExcludedShippingOptions.
     /// </summary>
-    public virtual ICollection<ShippingOption> ShippingOptions { get; set; } = new HashSet<ShippingOption>();
+    public virtual ICollection<ShippingOption> ShippingOptions { get; set; } = [];
 
     /// <summary>
     /// The filters selected for this variant
     /// </summary>
-    public virtual ICollection<ProductFilter> Filters { get; set; } = new List<ProductFilter>();
+    public virtual ICollection<ProductFilter> Filters { get; set; } = [];
 
     /// <summary>
     /// Collection of price overrides associated with products and this warehouse.
     /// </summary>
-    public ICollection<ProductWarehousePriceOverride> ProductWarehousePriceOverrides { get; set; } = new HashSet<ProductWarehousePriceOverride>();
+    public ICollection<ProductWarehousePriceOverride> ProductWarehousePriceOverrides { get; set; } = [];
 
     /// <summary>
     /// Stock levels for this product variant at each warehouse
     /// </summary>
-    public virtual ICollection<ProductWarehouse> ProductWarehouses { get; set; } = new HashSet<ProductWarehouse>();
+    public virtual ICollection<ProductWarehouse> ProductWarehouses { get; set; } = [];
 
     /// <summary>
     /// Defines how shipping restrictions are applied to this product.
@@ -201,12 +201,12 @@ public class Product
     /// When ShippingRestrictionMode is AllowList, restricts to ONLY these specific shipping options
     /// (overrides base ShippingOptions collection)
     /// </summary>
-    public virtual ICollection<ShippingOption> AllowedShippingOptions { get; set; } = new HashSet<ShippingOption>();
+    public virtual ICollection<ShippingOption> AllowedShippingOptions { get; set; } = [];
 
     /// <summary>
     /// When ShippingRestrictionMode is ExcludeList, excludes these specific options from the base ShippingOptions
     /// (removes these from base ShippingOptions collection)
     /// </summary>
-    public virtual ICollection<ShippingOption> ExcludedShippingOptions { get; set; } = new HashSet<ShippingOption>();
+    public virtual ICollection<ShippingOption> ExcludedShippingOptions { get; set; } = [];
 
 }

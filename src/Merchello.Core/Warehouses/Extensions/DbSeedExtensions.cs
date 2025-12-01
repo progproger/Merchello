@@ -18,7 +18,7 @@ public static class WarehouseServiceDbSeedExtensions
     /// Adds the warehouse to the context but does NOT save - caller must call SaveChangesAsync.
     /// </summary>
     public static CrudResult<Warehouse> CreateWarehouseWithOptions(
-        this IMerchDbContext context,
+        this MerchelloDbContext context,
         WarehouseFactory warehouseFactory,
         string name,
         string? code = null,

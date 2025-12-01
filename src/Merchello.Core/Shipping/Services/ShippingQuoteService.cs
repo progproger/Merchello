@@ -8,15 +8,16 @@ using Merchello.Core.Shipping.Providers;
 using Merchello.Core.Shipping.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Umbraco.Cms.Persistence.EFCore.Scoping;
 
 namespace Merchello.Core.Shipping.Services;
 
 public class ShippingQuoteService(
-    IMerchDbContext dbContext,
+    IEFCoreScopeProvider<MerchelloDbContext> efCoreScopeProvider,
     IShippingProviderManager providerRegistry,
     ILogger<ShippingQuoteService> logger) : IShippingQuoteService
 {
-    private readonly IMerchDbContext _dbContext = dbContext;
+    private readonly IEFCoreScopeProvider<MerchelloDbContext> _efCoreScopeProvider = efCoreScopeProvider;
     private readonly IShippingProviderManager _providerRegistry = providerRegistry;
     private readonly ILogger<ShippingQuoteService> _logger = logger;
 
@@ -39,7 +40,7 @@ public class ShippingQuoteService(
         }
 
         var providers = await _providerRegistry.GetEnabledProvidersAsync(cancellationToken);
-        var quotes = new List<ShippingRateQuote>();
+        List<ShippingRateQuote> quotes = [];
 
         foreach (var provider in providers)
         {
@@ -71,7 +72,7 @@ public class ShippingQuoteService(
         string? stateOrProvinceCode,
         CancellationToken cancellationToken)
     {
-        var errors = new List<BasketError>();
+        List<BasketError> errors = [];
 
         var missingProductReferences = basket.LineItems
             .Where(item => item.LineItemType == LineItemType.Product && !item.ProductId.HasValue)
@@ -105,28 +106,31 @@ public class ShippingQuoteService(
 
         var productIds = lineItems.Select(item => item.ProductId!.Value).Distinct().ToList();
 
-        var products = await _dbContext.Products
-            .Include(product => product.ProductRoot)
-                .ThenInclude(pr => pr!.ProductRootWarehouses)
-                    .ThenInclude(prw => prw.Warehouse)
-                        .ThenInclude(w => w!.ShippingOptions)
-                            .ThenInclude(so => so.ShippingCosts)
-            .Include(product => product.ProductRoot)
-                .ThenInclude(pr => pr!.ProductRootWarehouses)
-                    .ThenInclude(prw => prw.Warehouse)
-                        .ThenInclude(w => w!.ServiceRegions)
-            .Include(product => product.ShippingOptions)
-                .ThenInclude(option => option.ShippingCosts)
-            .Include(product => product.ShippingOptions)
-                .ThenInclude(option => option.Warehouse)
-                    .ThenInclude(warehouse => warehouse!.ServiceRegions)
-            .Include(product => product.AllowedShippingOptions)
-            .Include(product => product.ExcludedShippingOptions)
-            .AsNoTracking()
-            .Where(product => productIds.Contains(product.Id))
-            .ToDictionaryAsync(product => product.Id, cancellationToken);
+        using var scope = _efCoreScopeProvider.CreateScope();
+        var products = await scope.ExecuteWithContextAsync(async db =>
+            await db.Products
+                .Include(product => product.ProductRoot)
+                    .ThenInclude(pr => pr!.ProductRootWarehouses)
+                        .ThenInclude(prw => prw.Warehouse)
+                            .ThenInclude(w => w!.ShippingOptions)
+                                .ThenInclude(so => so.ShippingCosts)
+                .Include(product => product.ProductRoot)
+                    .ThenInclude(pr => pr!.ProductRootWarehouses)
+                        .ThenInclude(prw => prw.Warehouse)
+                            .ThenInclude(w => w!.ServiceRegions)
+                .Include(product => product.ShippingOptions)
+                    .ThenInclude(option => option.ShippingCosts)
+                .Include(product => product.ShippingOptions)
+                    .ThenInclude(option => option.Warehouse)
+                        .ThenInclude(warehouse => warehouse!.ServiceRegions)
+                .Include(product => product.AllowedShippingOptions)
+                .Include(product => product.ExcludedShippingOptions)
+                .AsNoTracking()
+                .Where(product => productIds.Contains(product.Id))
+                .ToDictionaryAsync(product => product.Id, cancellationToken));
+        scope.Complete();
 
-        var items = new List<ShippingQuoteItem>();
+        List<ShippingQuoteItem> items = [];
         decimal totalWeight = 0;
 
         foreach (var lineItem in lineItems)

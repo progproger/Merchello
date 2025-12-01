@@ -318,7 +318,7 @@ public static partial class StringExtensions
 
     public static List<int> ToListInt(this string s)
     {
-        return !s.IsNullOrWhiteSpace() ? s.Split(',').Select(int.Parse).ToList() : new List<int>();
+        return !s.IsNullOrWhiteSpace() ? s.Split(',').Select(int.Parse).ToList() : [];
     }
 
     public static string Truncate(this string source, int length)
