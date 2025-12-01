@@ -7,7 +7,7 @@ using Umbraco.Cms.Web.Common.Routing;
 namespace Merchello.Controllers
 {
     [ApiController]
-    [BackOfficeRoute("merchello/api/v{version:apiVersion}")]
+    [BackOfficeRoute("api/v{version:apiVersion}")]
     [Authorize(Policy = AuthorizationPolicies.SectionAccessContent)]
     [MapToApi(Constants.ApiName)]
     public class MerchelloApiControllerBase : ControllerBase

@@ -3,19 +3,17 @@ import type {
   UmbEntryPointOnUnload,
 } from "@umbraco-cms/backoffice/extension-api";
 import { UMB_AUTH_CONTEXT } from "@umbraco-cms/backoffice/auth";
-import { client } from "../api/client.gen.js";
+import { setApiConfig } from "../api/merchello-api.js";
 
 // load up the manifests here
 export const onInit: UmbEntryPointOnInit = (_host, _extensionRegistry) => {
   console.log("Hello from my extension 🎉");
-  // Will use only to add in Open API config with generated TS OpenAPI HTTPS Client
-  // Do the OAuth token handshake stuff
+
   _host.consumeContext(UMB_AUTH_CONTEXT, async (authContext) => {
-    // Get the token info from Umbraco
     const config = authContext?.getOpenApiConfiguration();
 
-    client.setConfig({
-      auth: config?.token ?? undefined,
+    setApiConfig({
+      token: config?.token,
       baseUrl: config?.base ?? "",
       credentials: config?.credentials ?? "same-origin",
     });

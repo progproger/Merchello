@@ -3,14 +3,14 @@ const a = [
     name: "Merchello Entrypoint",
     alias: "Merchello.Entrypoint",
     type: "backofficeEntryPoint",
-    js: () => import("./entrypoint-DpTJ6HQw.js")
+    js: () => import("./entrypoint-BecH514w.js")
   }
 ], e = [
   {
     name: "Merchello Dashboard",
     alias: "Merchello.Dashboard",
     type: "dashboard",
-    js: () => import("./dashboard.element-DmRisJBc.js"),
+    js: () => import("./dashboard.element-DwoqSD3G.js"),
     meta: {
       label: "Example Dashboard",
       pathname: "example-dashboard"

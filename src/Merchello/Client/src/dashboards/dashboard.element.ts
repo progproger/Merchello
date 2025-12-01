@@ -9,7 +9,7 @@ import { UmbElementMixin } from "@umbraco-cms/backoffice/element-api";
 import { UUIButtonElement } from "@umbraco-cms/backoffice/external/uui";
 import { UMB_NOTIFICATION_CONTEXT } from "@umbraco-cms/backoffice/notification";
 import { UMB_CURRENT_USER_CONTEXT, UmbCurrentUserModel } from "@umbraco-cms/backoffice/current-user";
-import { MerchelloService, UserModel } from "../api/index.js";
+import { MerchelloApi, UserModel } from "../api/merchello-api.js";
 
 @customElement("example-dashboard")
 export class ExampleDashboardElement extends UmbElementMixin(LitElement) {
@@ -52,7 +52,7 @@ export class ExampleDashboardElement extends UmbElementMixin(LitElement) {
     const buttonElement = ev.target as UUIButtonElement;
     buttonElement.state = "waiting";
 
-    const { data, error } = await MerchelloService.whoAmI();
+    const { data, error } = await MerchelloApi.whoAmI();
 
     if (error) {
       buttonElement.state = "failed";
@@ -80,7 +80,7 @@ export class ExampleDashboardElement extends UmbElementMixin(LitElement) {
     buttonElement.state = "waiting";
 
     // Getting a string - should I expect a datetime?!
-    const { data, error } = await MerchelloService.whatsTheTimeMrWolf();
+    const { data, error } = await MerchelloApi.whatsTheTimeMrWolf();
 
     if (error) {
       buttonElement.state = "failed";
@@ -98,7 +98,7 @@ export class ExampleDashboardElement extends UmbElementMixin(LitElement) {
     const buttonElement = ev.target as UUIButtonElement;
     buttonElement.state = "waiting";
 
-    const { data, error } = await MerchelloService.whatsMyName();
+    const { data, error } = await MerchelloApi.whatsMyName();
 
     if (error) {
       buttonElement.state = "failed";
