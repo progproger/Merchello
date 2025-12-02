@@ -88,6 +88,24 @@ export interface OrderListResponse {
   totalPages: number;
 }
 
+export interface OrderStatsDto {
+  ordersToday: number;
+  itemsOrderedToday: number;
+  ordersFulfilledToday: number;
+  ordersDeliveredToday: number;
+}
+
+export interface DashboardStatsDto {
+  ordersThisMonth: number;
+  ordersChangePercent: number;
+  revenueThisMonth: number;
+  revenueChangePercent: number;
+  productCount: number;
+  productCountChange: number;
+  customerCount: number;
+  customerCountChange: number;
+}
+
 export interface OrderListParams {
   page?: number;
   pageSize?: number;
@@ -114,3 +132,90 @@ export enum OrderStatus {
 // Entity types for workspace routing
 export const MERCHELLO_ORDERS_ENTITY_TYPE = "merchello-orders";
 export const MERCHELLO_ORDER_ENTITY_TYPE = "merchello-order";
+
+// ============================================
+// Fulfillment Types
+// ============================================
+
+/** Request to create a new shipment */
+export interface CreateShipmentRequest {
+  /** Line items to include in shipment. Key: LineItemId, Value: Quantity */
+  lineItems: Record<string, number>;
+  /** Carrier name (e.g., "UPS", "FedEx", "DHL") */
+  carrier?: string;
+  /** Tracking number for the shipment */
+  trackingNumber?: string;
+  /** URL to track the shipment */
+  trackingUrl?: string;
+}
+
+/** Request to update shipment tracking info */
+export interface UpdateShipmentRequest {
+  carrier?: string;
+  trackingNumber?: string;
+  trackingUrl?: string;
+  actualDeliveryDate?: string;
+}
+
+/** Summary of fulfillment state for the entire invoice (used in fulfillment dialog) */
+export interface FulfillmentSummaryDto {
+  invoiceId: string;
+  invoiceNumber: string;
+  overallStatus: "Unfulfilled" | "Partial" | "Fulfilled";
+  orders: OrderFulfillmentDto[];
+}
+
+/** Order fulfillment state showing shipped vs unshipped items */
+export interface OrderFulfillmentDto {
+  orderId: string;
+  warehouseId: string;
+  warehouseName: string;
+  status: OrderStatus;
+  deliveryMethod: string;
+  lineItems: FulfillmentLineItemDto[];
+  shipments: ShipmentDetailDto[];
+}
+
+/** Line item with fulfillment quantities */
+export interface FulfillmentLineItemDto {
+  id: string;
+  sku: string | null;
+  name: string | null;
+  orderedQuantity: number;
+  shippedQuantity: number;
+  remainingQuantity: number;
+  imageUrl: string | null;
+  amount: number;
+}
+
+/** Full shipment details for display */
+export interface ShipmentDetailDto {
+  id: string;
+  orderId: string;
+  carrier: string | null;
+  trackingNumber: string | null;
+  trackingUrl: string | null;
+  dateCreated: string;
+  actualDeliveryDate: string | null;
+  lineItems: ShipmentLineItemDto[];
+}
+
+/** Line item within a shipment */
+export interface ShipmentLineItemDto {
+  id: string;
+  lineItemId: string;
+  sku: string | null;
+  name: string | null;
+  quantity: number;
+  imageUrl: string | null;
+}
+
+/** For tracking items being added to a new shipment in the UI */
+export interface PendingShipmentItem {
+  lineItemId: string;
+  name: string;
+  sku: string | null;
+  quantity: number;
+  maxQuantity: number;
+  imageUrl: string | null;
+}

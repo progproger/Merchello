@@ -2,6 +2,7 @@ using Asp.Versioning;
 using Merchello.Controllers.Dtos;
 using Merchello.Core.Accounting.Models;
 using Merchello.Core.Data;
+using Merchello.Core.Shipping.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -31,7 +32,8 @@ public class OrdersApiController : MerchelloApiControllerBase
         var result = await scope.ExecuteWithContextAsync(async db =>
         {
             var invoicesQuery = db.Invoices
-                .Include(i => i.Orders)
+                .Include(i => i.Orders)!
+                    .ThenInclude(o => o.LineItems)
                 .Include(i => i.Payments)
                 .AsQueryable();
 
@@ -42,20 +44,6 @@ public class OrdersApiController : MerchelloApiControllerBase
                 invoicesQuery = invoicesQuery.Where(i =>
                     i.InvoiceNumber.ToLower().Contains(search) ||
                     (i.BillingAddress.Name != null && i.BillingAddress.Name.ToLower().Contains(search)));
-            }
-
-            if (!string.IsNullOrEmpty(query.PaymentStatus))
-            {
-                if (query.PaymentStatus.Equals("paid", StringComparison.OrdinalIgnoreCase))
-                {
-                    invoicesQuery = invoicesQuery.Where(i =>
-                        i.Payments != null && i.Payments.Sum(p => p.PaymentSuccess ? p.Amount : 0) >= i.Total);
-                }
-                else if (query.PaymentStatus.Equals("unpaid", StringComparison.OrdinalIgnoreCase))
-                {
-                    invoicesQuery = invoicesQuery.Where(i =>
-                        i.Payments == null || i.Payments.Sum(p => p.PaymentSuccess ? p.Amount : 0) < i.Total);
-                }
             }
 
             if (!string.IsNullOrEmpty(query.FulfillmentStatus))
@@ -74,9 +62,6 @@ public class OrdersApiController : MerchelloApiControllerBase
                 }
             }
 
-            // Get total count before pagination
-            var totalItems = await invoicesQuery.CountAsync();
-
             // Apply sorting
             invoicesQuery = query.SortBy?.ToLower() switch
             {
@@ -91,12 +76,37 @@ public class OrdersApiController : MerchelloApiControllerBase
                     : invoicesQuery.OrderByDescending(i => i.DateCreated)
             };
 
-            // Apply pagination
+            // Fetch all matching invoices (payment filter applied in memory for SQLite compatibility)
+            var allInvoices = await invoicesQuery.ToListAsync();
+
+            // Apply payment status filter in memory (SQLite doesn't support Sum in subqueries)
+            IEnumerable<Invoice> filteredInvoices = allInvoices;
+            if (!string.IsNullOrEmpty(query.PaymentStatus))
+            {
+                if (query.PaymentStatus.Equals("paid", StringComparison.OrdinalIgnoreCase))
+                {
+                    filteredInvoices = allInvoices.Where(i =>
+                        i.Payments != null &&
+                        i.Payments.Where(p => p.PaymentSuccess).Sum(p => p.Amount) >= i.Total);
+                }
+                else if (query.PaymentStatus.Equals("unpaid", StringComparison.OrdinalIgnoreCase))
+                {
+                    filteredInvoices = allInvoices.Where(i =>
+                        i.Payments == null ||
+                        !i.Payments.Any() ||
+                        i.Payments.Where(p => p.PaymentSuccess).Sum(p => p.Amount) < i.Total);
+                }
+            }
+
+            // Get total count after filtering
+            var totalItems = filteredInvoices.Count();
+
+            // Apply pagination in memory
             var skip = (query.Page - 1) * query.PageSize;
-            var invoices = await invoicesQuery
+            var invoices = filteredInvoices
                 .Skip(skip)
                 .Take(query.PageSize)
-                .ToListAsync();
+                .ToList();
 
             // Map to DTOs
             var items = invoices.Select(MapToListItem).ToList();
@@ -112,6 +122,141 @@ public class OrdersApiController : MerchelloApiControllerBase
         });
         scope.Complete();
         return result;
+    }
+
+    /// <summary>
+    /// Get order statistics for today
+    /// </summary>
+    [HttpGet("orders/stats")]
+    [ProducesResponseType<OrderStatsDto>(StatusCodes.Status200OK)]
+    public async Task<OrderStatsDto> GetOrderStats()
+    {
+        var today = DateTime.UtcNow.Date;
+        var tomorrow = today.AddDays(1);
+
+        using var scope = _scopeProvider.CreateScope();
+        var stats = await scope.ExecuteWithContextAsync(async db =>
+        {
+            // Get today's invoices with their orders and line items
+            var todaysInvoices = await db.Invoices
+                .Include(i => i.Orders)!
+                    .ThenInclude(o => o.LineItems)
+                .Include(i => i.Orders)!
+                    .ThenInclude(o => o.Shipments)
+                .Where(i => i.DateCreated >= today && i.DateCreated < tomorrow)
+                .ToListAsync();
+
+            var ordersToday = todaysInvoices.Count;
+
+            var itemsOrderedToday = todaysInvoices
+                .SelectMany(i => i.Orders ?? Enumerable.Empty<Order>())
+                .SelectMany(o => o.LineItems ?? Enumerable.Empty<LineItem>())
+                .Sum(li => li.Quantity);
+
+            var ordersFulfilledToday = todaysInvoices
+                .Where(i => i.Orders != null && i.Orders.Any() &&
+                            i.Orders.All(o => o.Status == OrderStatus.Shipped || o.Status == OrderStatus.Completed))
+                .Count();
+
+            var ordersDeliveredToday = todaysInvoices
+                .Where(i => i.Orders != null &&
+                            i.Orders.Any(o => o.Shipments != null &&
+                                              o.Shipments.Any(s => s.ActualDeliveryDate != null &&
+                                                                   s.ActualDeliveryDate.Value.Date == today)))
+                .Count();
+
+            return new OrderStatsDto
+            {
+                OrdersToday = ordersToday,
+                ItemsOrderedToday = itemsOrderedToday,
+                OrdersFulfilledToday = ordersFulfilledToday,
+                OrdersDeliveredToday = ordersDeliveredToday
+            };
+        });
+        scope.Complete();
+
+        return stats;
+    }
+
+    /// <summary>
+    /// Get dashboard statistics with monthly metrics and percentage changes
+    /// </summary>
+    [HttpGet("orders/dashboard-stats")]
+    [ProducesResponseType<DashboardStatsDto>(StatusCodes.Status200OK)]
+    public async Task<DashboardStatsDto> GetDashboardStats()
+    {
+        var now = DateTime.UtcNow;
+        var thisMonthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var lastMonthStart = thisMonthStart.AddMonths(-1);
+        var lastMonthEnd = thisMonthStart;
+
+        using var scope = _scopeProvider.CreateScope();
+        var stats = await scope.ExecuteWithContextAsync(async db =>
+        {
+            // Get all invoices for this month and last month
+            var thisMonthInvoices = await db.Invoices
+                .Where(i => i.DateCreated >= thisMonthStart)
+                .ToListAsync();
+
+            var lastMonthInvoices = await db.Invoices
+                .Where(i => i.DateCreated >= lastMonthStart && i.DateCreated < lastMonthEnd)
+                .ToListAsync();
+
+            // Orders stats
+            var ordersThisMonth = thisMonthInvoices.Count;
+            var ordersLastMonth = lastMonthInvoices.Count;
+            var ordersChangePercent = ordersLastMonth > 0
+                ? Math.Round(((decimal)(ordersThisMonth - ordersLastMonth) / ordersLastMonth) * 100, 1)
+                : (ordersThisMonth > 0 ? 100m : 0m);
+
+            // Revenue stats
+            var revenueThisMonth = thisMonthInvoices.Sum(i => i.Total);
+            var revenueLastMonth = lastMonthInvoices.Sum(i => i.Total);
+            var revenueChangePercent = revenueLastMonth > 0
+                ? Math.Round(((revenueThisMonth - revenueLastMonth) / revenueLastMonth) * 100, 1)
+                : (revenueThisMonth > 0 ? 100m : 0m);
+
+            // Product count (total active products)
+            var productCount = await db.RootProducts.CountAsync();
+            // ProductRoot doesn't track DateCreated, so we can't calculate change
+            var productCountChange = 0;
+
+            // Customer count (unique billing emails)
+            var allEmails = await db.Invoices
+                .Where(i => i.BillingAddress.Email != null)
+                .Select(i => i.BillingAddress.Email)
+                .Distinct()
+                .ToListAsync();
+            var customerCount = allEmails.Count;
+
+            // New customers this month (emails that first appear this month)
+            var emailsBeforeThisMonth = await db.Invoices
+                .Where(i => i.DateCreated < thisMonthStart && i.BillingAddress.Email != null)
+                .Select(i => i.BillingAddress.Email)
+                .Distinct()
+                .ToListAsync();
+            var emailsThisMonth = thisMonthInvoices
+                .Where(i => i.BillingAddress?.Email != null)
+                .Select(i => i.BillingAddress!.Email)
+                .Distinct()
+                .ToList();
+            var newCustomersThisMonth = emailsThisMonth.Count(e => !emailsBeforeThisMonth.Contains(e));
+
+            return new DashboardStatsDto
+            {
+                OrdersThisMonth = ordersThisMonth,
+                OrdersChangePercent = ordersChangePercent,
+                RevenueThisMonth = revenueThisMonth,
+                RevenueChangePercent = revenueChangePercent,
+                ProductCount = productCount,
+                ProductCountChange = productCountChange,
+                CustomerCount = customerCount,
+                CustomerCountChange = newCustomersThisMonth
+            };
+        });
+        scope.Complete();
+
+        return stats;
     }
 
     /// <summary>
@@ -273,5 +418,339 @@ public class OrdersApiController : MerchelloApiControllerBase
     {
         var hasTracking = orders.Any(o => o.Shipments?.Any(s => !string.IsNullOrEmpty(s.TrackingNumber)) == true);
         return hasTracking ? "Tracking added" : "";
+    }
+
+    // ============================================
+    // Fulfillment Endpoints
+    // ============================================
+
+    /// <summary>
+    /// Get fulfillment summary for an invoice (used in fulfillment dialog)
+    /// </summary>
+    [HttpGet("orders/{invoiceId:guid}/fulfillment-summary")]
+    [ProducesResponseType<FulfillmentSummaryDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetFulfillmentSummary(Guid invoiceId)
+    {
+        using var scope = _scopeProvider.CreateScope();
+        var invoice = await scope.ExecuteWithContextAsync(async db =>
+        {
+            return await db.Invoices
+                .Include(i => i.Orders)!
+                    .ThenInclude(o => o.LineItems)
+                .Include(i => i.Orders)!
+                    .ThenInclude(o => o.Shipments)
+                .FirstOrDefaultAsync(i => i.Id == invoiceId);
+        });
+        scope.Complete();
+
+        if (invoice == null)
+        {
+            return NotFound();
+        }
+
+        // Load warehouse names
+        var warehouseIds = invoice.Orders?.Select(o => o.WarehouseId).Distinct().ToList() ?? new List<Guid>();
+        Dictionary<Guid, string> warehouseNames;
+
+        using var scope2 = _scopeProvider.CreateScope();
+        warehouseNames = await scope2.ExecuteWithContextAsync(async db =>
+        {
+            return await db.Warehouses
+                .Where(w => warehouseIds.Contains(w.Id))
+                .ToDictionaryAsync(w => w.Id, w => w.Name ?? "Unknown Warehouse");
+        });
+        scope2.Complete();
+
+        var summary = MapToFulfillmentSummary(invoice, warehouseNames);
+        return Ok(summary);
+    }
+
+    /// <summary>
+    /// Create a shipment for an order
+    /// </summary>
+    [HttpPost("orders/{orderId:guid}/shipments")]
+    [ProducesResponseType<ShipmentDetailDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> CreateShipment(Guid orderId, [FromBody] CreateShipmentRequestDto request)
+    {
+        if (request.LineItems == null || request.LineItems.Count == 0)
+        {
+            return BadRequest("At least one line item is required");
+        }
+
+        using var scope = _scopeProvider.CreateScope();
+        var result = await scope.ExecuteWithContextAsync(async db =>
+        {
+            var order = await db.Orders
+                .Include(o => o.LineItems)
+                .Include(o => o.Shipments)
+                .Include(o => o.Invoice)
+                .FirstOrDefaultAsync(o => o.Id == orderId);
+
+            if (order == null)
+            {
+                return (null, "Order not found");
+            }
+
+            // Validate quantities
+            foreach (var (lineItemId, quantity) in request.LineItems)
+            {
+                var lineItem = order.LineItems?.FirstOrDefault(li => li.Id == lineItemId);
+                if (lineItem == null)
+                {
+                    return (null, $"Line item {lineItemId} not found in order");
+                }
+
+                var alreadyShipped = order.Shipments?
+                    .SelectMany(s => s.LineItems ?? new List<LineItem>())
+                    .Where(li => li.Id == lineItemId)
+                    .Sum(li => li.Quantity) ?? 0;
+
+                var remaining = lineItem.Quantity - alreadyShipped;
+                if (quantity > remaining)
+                {
+                    return (null, $"Cannot ship {quantity} of {lineItem.Name}. Only {remaining} remaining");
+                }
+            }
+
+            // Create shipment line items
+            var shipmentLineItems = new List<LineItem>();
+            foreach (var (lineItemId, quantity) in request.LineItems)
+            {
+                var sourceLineItem = order.LineItems!.First(li => li.Id == lineItemId);
+                shipmentLineItems.Add(new LineItem
+                {
+                    Id = sourceLineItem.Id, // Keep original ID for tracking
+                    Sku = sourceLineItem.Sku,
+                    Name = sourceLineItem.Name,
+                    Quantity = quantity,
+                    Amount = sourceLineItem.Amount,
+                    LineItemType = sourceLineItem.LineItemType,
+                });
+            }
+
+            // Create shipment
+            var shipment = new Shipment
+            {
+                OrderId = orderId,
+                SupplierId = order.WarehouseId,
+                Address = order.Invoice?.ShippingAddress ?? new Core.Locality.Models.Address(),
+                LineItems = shipmentLineItems,
+                Carrier = request.Carrier,
+                TrackingNumber = request.TrackingNumber,
+                TrackingUrl = request.TrackingUrl,
+                RequestedDeliveryDate = order.RequestedDeliveryDate,
+                IsDeliveryDateGuaranteed = order.IsDeliveryDateGuaranteed,
+                DateCreated = DateTime.UtcNow
+            };
+
+            db.Shipments.Add(shipment);
+
+            // Update order status
+            var totalOrdered = order.LineItems?.Sum(li => li.Quantity) ?? 0;
+            var totalShipped = (order.Shipments?.SelectMany(s => s.LineItems ?? new List<LineItem>()).Sum(li => li.Quantity) ?? 0)
+                             + shipmentLineItems.Sum(li => li.Quantity);
+
+            if (totalShipped >= totalOrdered)
+            {
+                order.Status = OrderStatus.Shipped;
+                order.ShippedDate = DateTime.UtcNow;
+            }
+            else if (totalShipped > 0)
+            {
+                order.Status = OrderStatus.PartiallyShipped;
+            }
+
+            order.DateUpdated = DateTime.UtcNow;
+
+            await db.SaveChangesAsync();
+
+            return (shipment, (string?)null);
+        });
+        scope.Complete();
+
+        if (result.Item1 == null)
+        {
+            return result.Item2 == "Order not found" ? NotFound(result.Item2) : BadRequest(result.Item2);
+        }
+
+        return Ok(MapToShipmentDetail(result.Item1));
+    }
+
+    /// <summary>
+    /// Update shipment tracking information
+    /// </summary>
+    [HttpPut("shipments/{shipmentId:guid}")]
+    [ProducesResponseType<ShipmentDetailDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateShipment(Guid shipmentId, [FromBody] UpdateShipmentRequestDto request)
+    {
+        using var scope = _scopeProvider.CreateScope();
+        var shipment = await scope.ExecuteWithContextAsync(async db =>
+        {
+            var s = await db.Shipments.FirstOrDefaultAsync(s => s.Id == shipmentId);
+            if (s == null)
+            {
+                return null;
+            }
+
+            if (request.Carrier != null) s.Carrier = request.Carrier;
+            if (request.TrackingNumber != null) s.TrackingNumber = request.TrackingNumber;
+            if (request.TrackingUrl != null) s.TrackingUrl = request.TrackingUrl;
+            if (request.ActualDeliveryDate != null) s.ActualDeliveryDate = request.ActualDeliveryDate;
+
+            await db.SaveChangesAsync();
+            return s;
+        });
+        scope.Complete();
+
+        if (shipment == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(MapToShipmentDetail(shipment));
+    }
+
+    /// <summary>
+    /// Delete a shipment (releases items back to unfulfilled)
+    /// </summary>
+    [HttpDelete("shipments/{shipmentId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteShipment(Guid shipmentId)
+    {
+        using var scope = _scopeProvider.CreateScope();
+        var result = await scope.ExecuteWithContextAsync(async db =>
+        {
+            var shipment = await db.Shipments
+                .Include(s => s.Order)
+                    .ThenInclude(o => o.Shipments)
+                .Include(s => s.Order)
+                    .ThenInclude(o => o.LineItems)
+                .FirstOrDefaultAsync(s => s.Id == shipmentId);
+
+            if (shipment == null)
+            {
+                return false;
+            }
+
+            var order = shipment.Order;
+            db.Shipments.Remove(shipment);
+
+            // Recalculate order status
+            var remainingShipments = order.Shipments?.Where(s => s.Id != shipmentId).ToList() ?? new List<Shipment>();
+            var totalOrdered = order.LineItems?.Sum(li => li.Quantity) ?? 0;
+            var totalShipped = remainingShipments.SelectMany(s => s.LineItems ?? new List<LineItem>()).Sum(li => li.Quantity);
+
+            if (totalShipped >= totalOrdered)
+            {
+                order.Status = OrderStatus.Shipped;
+            }
+            else if (totalShipped > 0)
+            {
+                order.Status = OrderStatus.PartiallyShipped;
+            }
+            else
+            {
+                order.Status = OrderStatus.ReadyToFulfill;
+                order.ShippedDate = null;
+            }
+
+            order.DateUpdated = DateTime.UtcNow;
+
+            await db.SaveChangesAsync();
+            return true;
+        });
+        scope.Complete();
+
+        if (!result)
+        {
+            return NotFound();
+        }
+
+        return NoContent();
+    }
+
+    // ============================================
+    // Fulfillment Mapping Helpers
+    // ============================================
+
+    private static FulfillmentSummaryDto MapToFulfillmentSummary(Invoice invoice, Dictionary<Guid, string> warehouseNames)
+    {
+        var orders = invoice.Orders?.ToList() ?? new List<Order>();
+
+        return new FulfillmentSummaryDto
+        {
+            InvoiceId = invoice.Id,
+            InvoiceNumber = invoice.InvoiceNumber,
+            OverallStatus = GetFulfillmentStatus(orders),
+            Orders = orders.Select(o => MapToOrderFulfillment(o, warehouseNames)).ToList()
+        };
+    }
+
+    private static OrderFulfillmentDto MapToOrderFulfillment(Order order, Dictionary<Guid, string> warehouseNames)
+    {
+        var lineItems = order.LineItems?.ToList() ?? new List<LineItem>();
+        var shipments = order.Shipments?.ToList() ?? new List<Shipment>();
+
+        // Calculate shipped quantities per line item
+        var shippedQuantities = new Dictionary<Guid, int>();
+        foreach (var shipment in shipments)
+        {
+            foreach (var li in shipment.LineItems ?? new List<LineItem>())
+            {
+                if (!shippedQuantities.ContainsKey(li.Id))
+                {
+                    shippedQuantities[li.Id] = 0;
+                }
+                shippedQuantities[li.Id] += li.Quantity;
+            }
+        }
+
+        return new OrderFulfillmentDto
+        {
+            OrderId = order.Id,
+            WarehouseId = order.WarehouseId,
+            WarehouseName = warehouseNames.TryGetValue(order.WarehouseId, out var name) ? name : "Unknown Warehouse",
+            Status = order.Status,
+            DeliveryMethod = "Standard", // TODO: lookup from ShippingOption
+            LineItems = lineItems.Select(li => new FulfillmentLineItemDto
+            {
+                Id = li.Id,
+                Sku = li.Sku,
+                Name = li.Name,
+                OrderedQuantity = li.Quantity,
+                ShippedQuantity = shippedQuantities.TryGetValue(li.Id, out var shipped) ? shipped : 0,
+                ImageUrl = null, // TODO: lookup from product
+                Amount = li.Amount
+            }).ToList(),
+            Shipments = shipments.Select(MapToShipmentDetail).ToList()
+        };
+    }
+
+    private static ShipmentDetailDto MapToShipmentDetail(Shipment shipment)
+    {
+        return new ShipmentDetailDto
+        {
+            Id = shipment.Id,
+            OrderId = shipment.OrderId,
+            Carrier = shipment.Carrier,
+            TrackingNumber = shipment.TrackingNumber,
+            TrackingUrl = shipment.TrackingUrl,
+            DateCreated = shipment.DateCreated,
+            ActualDeliveryDate = shipment.ActualDeliveryDate,
+            LineItems = shipment.LineItems?.Select(li => new ShipmentLineItemDto
+            {
+                Id = Guid.NewGuid(), // Generate new ID for the shipment line item reference
+                LineItemId = li.Id,
+                Sku = li.Sku,
+                Name = li.Name,
+                Quantity = li.Quantity,
+                ImageUrl = null // TODO: lookup from product
+            }).ToList() ?? new List<ShipmentLineItemDto>()
+        };
     }
 }

@@ -1,4 +1,20 @@
 export const manifests: Array<UmbExtensionManifest> = [
+  // Fulfillment modal for creating shipments
+  {
+    type: "modal",
+    alias: "Merchello.Fulfillment.Modal",
+    name: "Merchello Fulfillment Modal",
+    js: () => import("./fulfillment/fulfillment-modal.element.js"),
+  },
+
+  // Shipment edit modal for updating tracking info
+  {
+    type: "modal",
+    alias: "Merchello.ShipmentEdit.Modal",
+    name: "Merchello Shipment Edit Modal",
+    js: () => import("./shipments/shipment-edit-modal.element.js"),
+  },
+
   // Workspace for orders list (when clicking "Orders" in tree)
   {
     type: "workspace",
@@ -54,6 +70,26 @@ export const manifests: Array<UmbExtensionManifest> = [
       label: "Details",
       pathname: "details",
       icon: "icon-document",
+    },
+    conditions: [
+      {
+        alias: "Umb.Condition.WorkspaceAlias",
+        match: "Merchello.Order.Detail.Workspace",
+      },
+    ],
+  },
+
+  // Shipments tab for viewing and managing shipments
+  {
+    type: "workspaceView",
+    alias: "Merchello.Order.ShipmentsView",
+    name: "Order Shipments View",
+    js: () => import("./shipments/shipments-view.element.js"),
+    weight: 90,
+    meta: {
+      label: "Shipments",
+      pathname: "shipments",
+      icon: "icon-truck",
     },
     conditions: [
       {

@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Merchello.Core.SqlServer.Migrations
 {
     [DbContext(typeof(MerchelloDbContext))]
-    [Migration("20251202105155_Initial")]
+    [Migration("20251202132637_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -735,6 +735,9 @@ namespace Merchello.Core.SqlServer.Migrations
 
                     b.Property<Guid>("CourierId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("DateCreated")
+                        .HasColumnType("datetime2");
 
                     b.Property<bool?>("IsDeliveryDateGuaranteed")
                         .HasColumnType("bit");

@@ -728,6 +728,9 @@ namespace Merchello.Core.Sqlite.Migrations
                     b.Property<Guid>("CourierId")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime>("DateCreated")
+                        .HasColumnType("TEXT");
+
                     b.Property<bool?>("IsDeliveryDateGuaranteed")
                         .HasColumnType("INTEGER");
 

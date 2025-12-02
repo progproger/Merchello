@@ -3,14 +3,14 @@ const e = [
     name: "Merchello Entrypoint",
     alias: "Merchello.Entrypoint",
     type: "backofficeEntryPoint",
-    js: () => import("./entrypoint-BDOiXIPz.js")
+    js: () => import("./entrypoint-CVulIESN.js")
   }
 ], a = [
   {
     name: "Merchello Dashboard",
     alias: "Merchello.Dashboard",
     type: "dashboard",
-    js: () => import("./dashboard.element-BMOALwRX.js"),
+    js: () => import("./dashboard.element-UIebsWWm.js"),
     meta: {
       label: "Example Dashboard",
       pathname: "example-dashboard"
@@ -22,7 +22,7 @@ const e = [
       }
     ]
   }
-], t = [
+], l = [
   // Section
   {
     type: "section",
@@ -68,7 +68,7 @@ const e = [
     type: "dashboard",
     alias: "Merchello.Dashboard.Stats",
     name: "Merchello Stats Dashboard",
-    element: () => import("./stats-dashboard.element-7jJDUUSr.js"),
+    element: () => import("./stats-dashboard.element-DX_QdfF9.js"),
     meta: {
       label: "Stats",
       pathname: "stats"
@@ -80,7 +80,7 @@ const e = [
       }
     ]
   }
-], l = [
+], t = [
   // Tree Repository
   {
     type: "repository",
@@ -162,6 +162,20 @@ const e = [
     ]
   }
 ], i = [
+  // Fulfillment modal for creating shipments
+  {
+    type: "modal",
+    alias: "Merchello.Fulfillment.Modal",
+    name: "Merchello Fulfillment Modal",
+    js: () => import("./fulfillment-modal.element-CtQE6G9i.js")
+  },
+  // Shipment edit modal for updating tracking info
+  {
+    type: "modal",
+    alias: "Merchello.ShipmentEdit.Modal",
+    name: "Merchello Shipment Edit Modal",
+    js: () => import("./shipment-edit-modal.element-j7WO5Gfx.js")
+  },
   // Workspace for orders list (when clicking "Orders" in tree)
   {
     type: "workspace",
@@ -178,7 +192,7 @@ const e = [
     type: "workspaceView",
     alias: "Merchello.Orders.ListView",
     name: "Orders List View",
-    js: () => import("./orders-list.element-CuWfjCpD.js"),
+    js: () => import("./orders-list.element-BHUiEkY5.js"),
     weight: 100,
     meta: {
       label: "Orders",
@@ -198,7 +212,7 @@ const e = [
     kind: "routable",
     alias: "Merchello.Order.Detail.Workspace",
     name: "Order Detail Workspace",
-    api: () => import("./order-detail-workspace.context-Dnspx4T4.js"),
+    api: () => import("./order-detail-workspace.context-BY3ms8B0.js"),
     meta: {
       entityType: "merchello-order"
     }
@@ -208,7 +222,7 @@ const e = [
     type: "workspaceView",
     alias: "Merchello.Order.DetailView",
     name: "Order Detail View",
-    js: () => import("./order-detail.element-CzOfhw09.js"),
+    js: () => import("./order-detail.element-Bm8bc41S.js"),
     weight: 100,
     meta: {
       label: "Details",
@@ -221,12 +235,31 @@ const e = [
         match: "Merchello.Order.Detail.Workspace"
       }
     ]
+  },
+  // Shipments tab for viewing and managing shipments
+  {
+    type: "workspaceView",
+    alias: "Merchello.Order.ShipmentsView",
+    name: "Order Shipments View",
+    js: () => import("./shipments-view.element-BTPi2SFV.js"),
+    weight: 90,
+    meta: {
+      label: "Shipments",
+      pathname: "shipments",
+      icon: "icon-truck"
+    },
+    conditions: [
+      {
+        alias: "Umb.Condition.WorkspaceAlias",
+        match: "Merchello.Order.Detail.Workspace"
+      }
+    ]
   }
 ], r = [
   ...e,
   ...a,
-  ...t,
   ...l,
+  ...t,
   ...o,
   ...i
 ];

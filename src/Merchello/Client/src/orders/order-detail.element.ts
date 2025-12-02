@@ -2,8 +2,11 @@ import { LitElement, html, css, nothing } from "@umbraco-cms/backoffice/external
 import { customElement, state } from "@umbraco-cms/backoffice/external/lit";
 import { UmbElementMixin } from "@umbraco-cms/backoffice/element-api";
 import { UMB_WORKSPACE_CONTEXT } from "@umbraco-cms/backoffice/workspace";
+import { UMB_MODAL_MANAGER_CONTEXT } from "@umbraco-cms/backoffice/modal";
+import type { UmbModalManagerContext } from "@umbraco-cms/backoffice/modal";
 import type { OrderDetailDto, AddressDto, FulfillmentOrderDto } from "./types.js";
 import type { MerchelloOrderDetailWorkspaceContext } from "./order-detail-workspace.context.js";
+import { MERCHELLO_FULFILLMENT_MODAL } from "./fulfillment/fulfillment-modal.token.js";
 
 @customElement("merchello-order-detail")
 export class MerchelloOrderDetailElement extends UmbElementMixin(LitElement) {
@@ -11,6 +14,7 @@ export class MerchelloOrderDetailElement extends UmbElementMixin(LitElement) {
   @state() private _loading = true;
 
   #workspaceContext?: MerchelloOrderDetailWorkspaceContext;
+  #modalManager?: UmbModalManagerContext;
 
   constructor() {
     super();
@@ -21,6 +25,23 @@ export class MerchelloOrderDetailElement extends UmbElementMixin(LitElement) {
         this._loading = !order;
       });
     });
+    this.consumeContext(UMB_MODAL_MANAGER_CONTEXT, (context) => {
+      this.#modalManager = context;
+    });
+  }
+
+  private async _openFulfillmentModal(): Promise<void> {
+    if (!this._order || !this.#modalManager) return;
+
+    const modal = this.#modalManager.open(this, MERCHELLO_FULFILLMENT_MODAL, {
+      data: { invoiceId: this._order.id },
+    });
+
+    const result = await modal.onSubmit().catch(() => undefined);
+    if (result && result.shipmentsCreated > 0) {
+      // Refresh the order data
+      this.#workspaceContext?.load(this._order.id);
+    }
   }
 
   private _formatDate(dateString: string): string {
@@ -83,7 +104,7 @@ export class MerchelloOrderDetailElement extends UmbElementMixin(LitElement) {
           )}
         </div>
         <div class="card-footer">
-          <uui-button look="primary" label="Mark as fulfilled">Mark as fulfilled</uui-button>
+          <uui-button look="primary" label="Fulfil" @click=${this._openFulfillmentModal}>Fulfil</uui-button>
         </div>
       </div>
     `;

@@ -394,7 +394,8 @@ namespace Merchello.Core.SqlServer.Migrations
                     Carrier = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     RequestedDeliveryDate = table.Column<DateTime>(type: "datetime2", nullable: true),
                     IsDeliveryDateGuaranteed = table.Column<bool>(type: "bit", nullable: true),
-                    ActualDeliveryDate = table.Column<DateTime>(type: "datetime2", nullable: true)
+                    ActualDeliveryDate = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    DateCreated = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {

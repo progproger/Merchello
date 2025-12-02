@@ -1,82 +1,50 @@
-import {
-  LitElement,
-  css,
-  html,
-  customElement,
-  state,
-} from "@umbraco-cms/backoffice/external/lit";
-import { UmbElementMixin } from "@umbraco-cms/backoffice/element-api";
-import { MerchelloApi } from "../api/merchello-api.js";
-import type { DashboardStatsDto, OrderListItemDto } from "../orders/types.js";
-
-@customElement("merchello-stats-dashboard")
-export class MerchelloStatsDashboardElement extends UmbElementMixin(LitElement) {
-  @state()
-  private _stats: DashboardStatsDto | null = null;
-
-  @state()
-  private _recentOrders: OrderListItemDto[] = [];
-
-  @state()
-  private _loading = true;
-
-  connectedCallback(): void {
-    super.connectedCallback();
-    this._loadData();
+import { LitElement as h, html as l, css as g, state as c, customElement as m } from "@umbraco-cms/backoffice/external/lit";
+import { UmbElementMixin as b } from "@umbraco-cms/backoffice/element-api";
+import { M as d } from "./merchello-api-Il9xQut5.js";
+var v = Object.defineProperty, _ = Object.getOwnPropertyDescriptor, u = (t, e, r, i) => {
+  for (var a = i > 1 ? void 0 : i ? _(e, r) : e, o = t.length - 1, n; o >= 0; o--)
+    (n = t[o]) && (a = (i ? n(e, r, a) : n(a)) || a);
+  return i && a && v(e, r, a), a;
+};
+let s = class extends b(h) {
+  constructor() {
+    super(...arguments), this._stats = null, this._recentOrders = [], this._loading = !0;
   }
-
-  private async _loadData(): Promise<void> {
-    this._loading = true;
-
-    // Load both in parallel
-    const [statsResult, ordersResult] = await Promise.all([
-      MerchelloApi.getDashboardStats(),
-      MerchelloApi.getOrders({ pageSize: 15, sortBy: "date", sortDir: "desc" }),
+  connectedCallback() {
+    super.connectedCallback(), this._loadData();
+  }
+  async _loadData() {
+    this._loading = !0;
+    const [t, e] = await Promise.all([
+      d.getDashboardStats(),
+      d.getOrders({ pageSize: 15, sortBy: "date", sortDir: "desc" })
     ]);
-
-    if (statsResult.data) {
-      this._stats = statsResult.data;
-    }
-
-    if (ordersResult.data) {
-      this._recentOrders = ordersResult.data.items;
-    }
-
-    this._loading = false;
+    t.data && (this._stats = t.data), e.data && (this._recentOrders = e.data.items), this._loading = !1;
   }
-
-  private _formatCurrency(amount: number): string {
+  _formatCurrency(t) {
     return new Intl.NumberFormat("en-GB", {
       style: "currency",
-      currency: "GBP",
-    }).format(amount);
+      currency: "GBP"
+    }).format(t);
   }
-
-  private _formatDate(dateString: string): string {
-    return new Date(dateString).toLocaleDateString("en-GB", {
+  _formatDate(t) {
+    return new Date(t).toLocaleDateString("en-GB", {
       day: "2-digit",
       month: "short",
-      year: "numeric",
+      year: "numeric"
     });
   }
-
-  private _formatPercent(value: number): string {
-    const sign = value >= 0 ? "+" : "";
-    return `${sign}${value}%`;
+  _formatPercent(t) {
+    return `${t >= 0 ? "+" : ""}${t}%`;
   }
-
-  private _getChangeClass(value: number): string {
-    if (value > 0) return "positive";
-    if (value < 0) return "negative";
-    return "neutral";
+  _getChangeClass(t) {
+    return t > 0 ? "positive" : t < 0 ? "negative" : "neutral";
   }
-
-  private _getOrderHref(id: string): string {
-    return `section/merchello/workspace/merchello-order/edit/${id}`;
+  _getOrderHref(t) {
+    return `section/merchello/workspace/merchello-order/edit/${t}`;
   }
-
-  private _getStatusBadgeColor(status: string): string {
-    switch (status.toLowerCase()) {
+  _getStatusBadgeColor(t) {
+    switch (t.toLowerCase()) {
       case "fulfilled":
         return "positive";
       case "partial":
@@ -86,21 +54,15 @@ export class MerchelloStatsDashboardElement extends UmbElementMixin(LitElement) 
         return "default";
     }
   }
-
-  private _getPaymentBadgeColor(status: string): string {
-    return status.toLowerCase() === "paid" ? "positive" : "warning";
+  _getPaymentBadgeColor(t) {
+    return t.toLowerCase() === "paid" ? "positive" : "warning";
   }
-
   render() {
-    if (this._loading) {
-      return html`
+    return this._loading ? l`
         <div class="loading">
           <uui-loader></uui-loader>
         </div>
-      `;
-    }
-
-    return html`
+      ` : l`
       <div class="stats-grid">
         <uui-box headline="Orders">
           <div class="stat-value">${this._stats?.ordersThisMonth ?? 0}</div>
@@ -122,9 +84,7 @@ export class MerchelloStatsDashboardElement extends UmbElementMixin(LitElement) 
           <div class="stat-value">${this._stats?.productCount ?? 0}</div>
           <div class="stat-label">Active Products</div>
           <div class="stat-change ${this._getChangeClass(this._stats?.productCountChange ?? 0)}">
-            ${this._stats?.productCountChange !== 0
-              ? `${this._stats?.productCountChange! > 0 ? "+" : ""}${this._stats?.productCountChange} this month`
-              : "No change"}
+            ${this._stats?.productCountChange !== 0 ? `${this._stats?.productCountChange > 0 ? "+" : ""}${this._stats?.productCountChange} this month` : "No change"}
           </div>
         </uui-box>
 
@@ -132,17 +92,13 @@ export class MerchelloStatsDashboardElement extends UmbElementMixin(LitElement) 
           <div class="stat-value">${this._stats?.customerCount ?? 0}</div>
           <div class="stat-label">Unique Customers</div>
           <div class="stat-change ${this._getChangeClass(this._stats?.customerCountChange ?? 0)}">
-            ${this._stats?.customerCountChange !== 0
-              ? `+${this._stats?.customerCountChange} new this month`
-              : "No new customers"}
+            ${this._stats?.customerCountChange !== 0 ? `+${this._stats?.customerCountChange} new this month` : "No new customers"}
           </div>
         </uui-box>
       </div>
 
       <uui-box headline="Recent Orders" class="wide">
-        ${this._recentOrders.length === 0
-          ? html`<p class="no-data">No orders yet</p>`
-          : html`
+        ${this._recentOrders.length === 0 ? l`<p class="no-data">No orders yet</p>` : l`
               <uui-table>
                 <uui-table-head>
                   <uui-table-head-cell>Order #</uui-table-head-cell>
@@ -153,35 +109,35 @@ export class MerchelloStatsDashboardElement extends UmbElementMixin(LitElement) 
                   <uui-table-head-cell>Total</uui-table-head-cell>
                 </uui-table-head>
                 ${this._recentOrders.map(
-                  (order) => html`
+      (t) => l`
                     <uui-table-row>
                       <uui-table-cell>
-                        <a href=${this._getOrderHref(order.id)}>#${order.invoiceNumber}</a>
+                        <a href=${this._getOrderHref(t.id)}>#${t.invoiceNumber}</a>
                       </uui-table-cell>
-                      <uui-table-cell>${order.customerName}</uui-table-cell>
-                      <uui-table-cell>${this._formatDate(order.dateCreated)}</uui-table-cell>
+                      <uui-table-cell>${t.customerName}</uui-table-cell>
+                      <uui-table-cell>${this._formatDate(t.dateCreated)}</uui-table-cell>
                       <uui-table-cell>
-                        <uui-badge color=${this._getPaymentBadgeColor(order.paymentStatus)}>
-                          ${order.paymentStatus}
+                        <uui-badge color=${this._getPaymentBadgeColor(t.paymentStatus)}>
+                          ${t.paymentStatus}
                         </uui-badge>
                       </uui-table-cell>
                       <uui-table-cell>
-                        <uui-badge color=${this._getStatusBadgeColor(order.fulfillmentStatus)}>
-                          ${order.fulfillmentStatus}
+                        <uui-badge color=${this._getStatusBadgeColor(t.fulfillmentStatus)}>
+                          ${t.fulfillmentStatus}
                         </uui-badge>
                       </uui-table-cell>
-                      <uui-table-cell>${this._formatCurrency(order.total)}</uui-table-cell>
+                      <uui-table-cell>${this._formatCurrency(t.total)}</uui-table-cell>
                     </uui-table-row>
                   `
-                )}
+    )}
               </uui-table>
             `}
       </uui-box>
     `;
   }
-
-  static styles = [
-    css`
+};
+s.styles = [
+  g`
       :host {
         display: block;
         padding: var(--uui-size-layout-1);
@@ -257,14 +213,23 @@ export class MerchelloStatsDashboardElement extends UmbElementMixin(LitElement) 
         color: var(--uui-color-text-alt);
         padding: var(--uui-size-layout-2);
       }
-    `,
-  ];
-}
-
-export default MerchelloStatsDashboardElement;
-
-declare global {
-  interface HTMLElementTagNameMap {
-    "merchello-stats-dashboard": MerchelloStatsDashboardElement;
-  }
-}
+    `
+];
+u([
+  c()
+], s.prototype, "_stats", 2);
+u([
+  c()
+], s.prototype, "_recentOrders", 2);
+u([
+  c()
+], s.prototype, "_loading", 2);
+s = u([
+  m("merchello-stats-dashboard")
+], s);
+const y = s;
+export {
+  s as MerchelloStatsDashboardElement,
+  y as default
+};
+//# sourceMappingURL=stats-dashboard.element-DX_QdfF9.js.map

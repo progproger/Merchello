@@ -733,6 +733,9 @@ namespace Merchello.Core.SqlServer.Migrations
                     b.Property<Guid>("CourierId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime>("DateCreated")
+                        .HasColumnType("datetime2");
+
                     b.Property<bool?>("IsDeliveryDateGuaranteed")
                         .HasColumnType("bit");
 

@@ -76,4 +76,9 @@ public class Shipment
     /// Actual date delivered (from tracking or manual update)
     /// </summary>
     public DateTime? ActualDeliveryDate { get; set; }
+
+    /// <summary>
+    /// Date the shipment was created
+    /// </summary>
+    public DateTime DateCreated { get; set; } = DateTime.UtcNow;
 }

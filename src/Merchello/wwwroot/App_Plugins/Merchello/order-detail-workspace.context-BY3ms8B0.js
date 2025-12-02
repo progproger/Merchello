@@ -1,13 +1,13 @@
 import { UmbControllerBase as i } from "@umbraco-cms/backoffice/class-api";
 import { UMB_WORKSPACE_CONTEXT as o, UmbWorkspaceRouteManager as a } from "@umbraco-cms/backoffice/workspace";
 import { UmbObjectState as d } from "@umbraco-cms/backoffice/observable-api";
-import { M as l } from "./merchello-api-CdBya1Dq.js";
+import { M as l } from "./merchello-api-Il9xQut5.js";
 class u extends i {
   constructor(e) {
     super(e, o.toString()), this.workspaceAlias = "Merchello.Order.Detail.Workspace", this.#e = new d(void 0), this.order = this.#e.asObservable(), this.routes = new a(e), this.provideContext(o, this), this.routes.setRoutes([
       {
         path: "edit/:id",
-        component: () => import("./order-detail.element-CzOfhw09.js"),
+        component: () => import("./order-detail.element-Bm8bc41S.js"),
         setup: (t, r) => {
           const s = r.match.params.id;
           this.load(s);
@@ -37,4 +37,4 @@ export {
   u as MerchelloOrderDetailWorkspaceContext,
   u as api
 };
-//# sourceMappingURL=order-detail-workspace.context-Dnspx4T4.js.map
+//# sourceMappingURL=order-detail-workspace.context-BY3ms8B0.js.map

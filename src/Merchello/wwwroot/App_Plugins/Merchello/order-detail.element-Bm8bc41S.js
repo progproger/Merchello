@@ -1,20 +1,37 @@
-import { LitElement as v, html as t, nothing as g, css as h, state as c, customElement as b } from "@umbraco-cms/backoffice/external/lit";
-import { UmbElementMixin as f } from "@umbraco-cms/backoffice/element-api";
-import { UMB_WORKSPACE_CONTEXT as y } from "@umbraco-cms/backoffice/workspace";
-var x = Object.defineProperty, z = Object.getOwnPropertyDescriptor, p = (e) => {
+import { LitElement as b, html as a, nothing as y, css as _, state as h, customElement as x } from "@umbraco-cms/backoffice/external/lit";
+import { UmbElementMixin as z } from "@umbraco-cms/backoffice/element-api";
+import { UMB_WORKSPACE_CONTEXT as w } from "@umbraco-cms/backoffice/workspace";
+import { UmbModalToken as $, UMB_MODAL_MANAGER_CONTEXT as C } from "@umbraco-cms/backoffice/modal";
+const k = new $("Merchello.Fulfillment.Modal", {
+  modal: {
+    type: "sidebar",
+    size: "large"
+  }
+});
+var S = Object.defineProperty, M = Object.getOwnPropertyDescriptor, g = (e) => {
   throw TypeError(e);
-}, u = (e, i, a, s) => {
-  for (var r = s > 1 ? void 0 : s ? z(i, a) : i, d = e.length - 1, l; d >= 0; d--)
-    (l = e[d]) && (r = (s ? l(i, a, r) : l(r)) || r);
-  return s && r && x(i, a, r), r;
-}, m = (e, i, a) => i.has(e) || p("Cannot " + a), w = (e, i, a) => (m(e, i, "read from private field"), a ? a.call(e) : i.get(e)), _ = (e, i, a) => i.has(e) ? p("Cannot add the same private member more than once") : i instanceof WeakSet ? i.add(e) : i.set(e, a), $ = (e, i, a, s) => (m(e, i, "write to private field"), i.set(e, a), a), n;
-let o = class extends f(v) {
+}, p = (e, i, t, s) => {
+  for (var r = s > 1 ? void 0 : s ? M(i, t) : i, u = e.length - 1, c; u >= 0; u--)
+    (c = e[u]) && (r = (s ? c(i, t, r) : c(r)) || r);
+  return s && r && S(i, t, r), r;
+}, f = (e, i, t) => i.has(e) || g("Cannot " + t), l = (e, i, t) => (f(e, i, "read from private field"), t ? t.call(e) : i.get(e)), m = (e, i, t) => i.has(e) ? g("Cannot add the same private member more than once") : i instanceof WeakSet ? i.add(e) : i.set(e, t), v = (e, i, t, s) => (f(e, i, "write to private field"), i.set(e, t), t), n, d;
+let o = class extends z(b) {
   constructor() {
-    super(), this._order = null, this._loading = !0, _(this, n), this.consumeContext(y, (e) => {
-      $(this, n, e), this.observe(w(this, n).order, (i) => {
+    super(), this._order = null, this._loading = !0, m(this, n), m(this, d), this.consumeContext(w, (e) => {
+      v(this, n, e), this.observe(l(this, n).order, (i) => {
         this._order = i ?? null, this._loading = !i;
       });
+    }), this.consumeContext(C, (e) => {
+      v(this, d, e);
     });
+  }
+  async _openFulfillmentModal() {
+    if (!this._order || !l(this, d)) return;
+    const i = await l(this, d).open(this, k, {
+      data: { invoiceId: this._order.id }
+    }).onSubmit().catch(() => {
+    });
+    i && i.shipmentsCreated > 0 && l(this, n)?.load(this._order.id);
   }
   _formatDate(e) {
     const i = new Date(e);
@@ -37,12 +54,12 @@ let o = class extends f(v) {
     if (!e) return ["No address"];
     const i = [];
     e.name && i.push(e.name), e.addressOne && i.push(e.addressOne), e.addressTwo && i.push(e.addressTwo);
-    const a = [e.townCity, e.countyState, e.postalCode].filter(Boolean).join(" ");
-    return a && i.push(a), e.country && i.push(e.country), e.phone && i.push(e.phone), i;
+    const t = [e.townCity, e.countyState, e.postalCode].filter(Boolean).join(" ");
+    return t && i.push(t), e.country && i.push(e.country), e.phone && i.push(e.phone), i;
   }
   _renderFulfillmentCard(e) {
     const i = this._getStatusLabel(e.status);
-    return t`
+    return a`
       <div class="card fulfillment-card">
         <div class="card-header">
           <span class="status-badge unfulfilled">${i}</span>
@@ -50,23 +67,23 @@ let o = class extends f(v) {
         </div>
         <div class="line-items">
           ${e.lineItems.map(
-      (a) => t`
+      (t) => a`
               <div class="line-item">
                 <div class="item-image">
-                  ${a.imageUrl ? t`<img src="${a.imageUrl}" alt="${a.name}" />` : t`<div class="placeholder-image"></div>`}
+                  ${t.imageUrl ? a`<img src="${t.imageUrl}" alt="${t.name}" />` : a`<div class="placeholder-image"></div>`}
                 </div>
                 <div class="item-details">
-                  <div class="item-name">${a.name}</div>
-                  <div class="item-sku">${a.sku}</div>
+                  <div class="item-name">${t.name}</div>
+                  <div class="item-sku">${t.sku}</div>
                 </div>
-                <div class="item-price">${this._formatCurrency(a.amount)} x ${a.quantity}</div>
-                <div class="item-total">${this._formatCurrency(a.amount * a.quantity)}</div>
+                <div class="item-price">${this._formatCurrency(t.amount)} x ${t.quantity}</div>
+                <div class="item-total">${this._formatCurrency(t.amount * t.quantity)}</div>
               </div>
             `
     )}
         </div>
         <div class="card-footer">
-          <uui-button look="primary" label="Mark as fulfilled">Mark as fulfilled</uui-button>
+          <uui-button look="primary" label="Fulfil" @click=${this._openFulfillmentModal}>Fulfil</uui-button>
         </div>
       </div>
     `;
@@ -86,11 +103,11 @@ let o = class extends f(v) {
   }
   render() {
     if (this._loading)
-      return t`<div class="loading"><uui-loader></uui-loader></div>`;
+      return a`<div class="loading"><uui-loader></uui-loader></div>`;
     if (!this._order)
-      return t`<div class="error">Order not found</div>`;
+      return a`<div class="error">Order not found</div>`;
     const e = this._order;
-    return t`
+    return a`
       <div class="order-detail">
         <!-- Header -->
         <div class="order-header">
@@ -125,7 +142,7 @@ let o = class extends f(v) {
               <div class="payment-summary">
                 <div class="summary-row">
                   <span>Subtotal</span>
-                  <span>${e.orders.reduce((i, a) => i + a.lineItems.reduce((s, r) => s + r.quantity, 0), 0)} items</span>
+                  <span>${e.orders.reduce((i, t) => i + t.lineItems.reduce((s, r) => s + r.quantity, 0), 0)} items</span>
                   <span>${this._formatCurrency(e.subTotal)}</span>
                 </div>
                 <div class="summary-row">
@@ -161,12 +178,12 @@ let o = class extends f(v) {
                 <div class="timeline-note">Only you and other staff can see comments</div>
               </div>
               <div class="timeline-events">
-                ${e.notes.length === 0 ? t`<div class="no-notes">No timeline events yet</div>` : e.notes.map(
-      (i) => t`
+                ${e.notes.length === 0 ? a`<div class="no-notes">No timeline events yet</div>` : e.notes.map(
+      (i) => a`
                         <div class="timeline-event">
                           <div class="event-time">${this._formatDate(i.date)}</div>
                           <div class="event-text">${i.text}</div>
-                          ${i.author ? t`<div class="event-author">by ${i.author}</div>` : g}
+                          ${i.author ? a`<div class="event-author">by ${i.author}</div>` : y}
                         </div>
                       `
     )}
@@ -204,7 +221,7 @@ let o = class extends f(v) {
                     <uui-icon name="icon-edit"></uui-icon>
                   </button>
                 </div>
-                ${e.billingAddress?.email ? t`<a href="mailto:${e.billingAddress.email}">${e.billingAddress.email}</a>` : t`<span class="muted">No email</span>`}
+                ${e.billingAddress?.email ? a`<a href="mailto:${e.billingAddress.email}">${e.billingAddress.email}</a>` : a`<span class="muted">No email</span>`}
               </div>
               <div class="section">
                 <div class="section-header">
@@ -214,7 +231,7 @@ let o = class extends f(v) {
                   </button>
                 </div>
                 <div class="address">
-                  ${this._formatAddress(e.shippingAddress).map((i) => t`<div>${i}</div>`)}
+                  ${this._formatAddress(e.shippingAddress).map((i) => a`<div>${i}</div>`)}
                 </div>
                 <a href="#" class="view-map">View map</a>
               </div>
@@ -225,9 +242,9 @@ let o = class extends f(v) {
                     <uui-icon name="icon-edit"></uui-icon>
                   </button>
                 </div>
-                ${e.billingAddress === e.shippingAddress ? t`<span class="muted">Same as shipping address</span>` : t`
+                ${e.billingAddress === e.shippingAddress ? a`<span class="muted">Same as shipping address</span>` : a`
                       <div class="address">
-                        ${this._formatAddress(e.billingAddress).map((i) => t`<div>${i}</div>`)}
+                        ${this._formatAddress(e.billingAddress).map((i) => a`<div>${i}</div>`)}
                       </div>
                     `}
               </div>
@@ -250,7 +267,8 @@ let o = class extends f(v) {
   }
 };
 n = /* @__PURE__ */ new WeakMap();
-o.styles = h`
+d = /* @__PURE__ */ new WeakMap();
+o.styles = _`
     :host {
       display: block;
       padding: var(--uui-size-layout-1);
@@ -564,18 +582,18 @@ o.styles = h`
       border-radius: var(--uui-border-radius);
     }
   `;
-u([
-  c()
+p([
+  h()
 ], o.prototype, "_order", 2);
-u([
-  c()
+p([
+  h()
 ], o.prototype, "_loading", 2);
-o = u([
-  b("merchello-order-detail")
+o = p([
+  x("merchello-order-detail")
 ], o);
-const E = o;
+const O = o;
 export {
   o as MerchelloOrderDetailElement,
-  E as default
+  O as default
 };
-//# sourceMappingURL=order-detail.element-CzOfhw09.js.map
+//# sourceMappingURL=order-detail.element-Bm8bc41S.js.map

@@ -2,7 +2,7 @@ import { LitElement as g, html as v, css as w, state as h, customElement as x } 
 import { UmbElementMixin as C } from "@umbraco-cms/backoffice/element-api";
 import { UMB_NOTIFICATION_CONTEXT as W } from "@umbraco-cms/backoffice/notification";
 import { UMB_CURRENT_USER_CONTEXT as U } from "@umbraco-cms/backoffice/current-user";
-import { M as d } from "./merchello-api-CdBya1Dq.js";
+import { M as d } from "./merchello-api-Il9xQut5.js";
 var T = Object.defineProperty, E = Object.getOwnPropertyDescriptor, y = (t) => {
   throw TypeError(t);
 }, u = (t, e, r, a) => {
@@ -173,4 +173,4 @@ export {
   o as ExampleDashboardElement,
   S as default
 };
-//# sourceMappingURL=dashboard.element-BMOALwRX.js.map
+//# sourceMappingURL=dashboard.element-UIebsWWm.js.map

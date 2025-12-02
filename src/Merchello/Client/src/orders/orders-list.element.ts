@@ -1,7 +1,7 @@
 import { LitElement, html, css } from "@umbraco-cms/backoffice/external/lit";
 import { customElement, state } from "@umbraco-cms/backoffice/external/lit";
 import { UmbElementMixin } from "@umbraco-cms/backoffice/element-api";
-import type { OrderListItemDto } from "./types.js";
+import type { OrderListItemDto, OrderStatsDto } from "./types.js";
 import { MerchelloApi } from "../api/merchello-api.js";
 
 @customElement("merchello-orders-list")
@@ -15,10 +15,12 @@ export class MerchelloOrdersListElement extends UmbElementMixin(LitElement) {
   @state() private _totalPages = 0;
   @state() private _activeTab = "all";
   @state() private _selectedOrders: Set<string> = new Set();
+  @state() private _stats: OrderStatsDto | null = null;
 
   connectedCallback(): void {
     super.connectedCallback();
     this._loadOrders();
+    this._loadStats();
   }
 
   private async _loadOrders(): Promise<void> {
@@ -54,6 +56,13 @@ export class MerchelloOrdersListElement extends UmbElementMixin(LitElement) {
     }
 
     this._loading = false;
+  }
+
+  private async _loadStats(): Promise<void> {
+    const { data } = await MerchelloApi.getOrderStats();
+    if (data) {
+      this._stats = data;
+    }
   }
 
   private _handleTabClick(tab: string): void {
@@ -129,27 +138,19 @@ export class MerchelloOrdersListElement extends UmbElementMixin(LitElement) {
           <div class="stat-item">
             <div class="stat-label">Today</div>
             <div class="stat-value">Orders</div>
-            <div class="stat-number">0 --</div>
+            <div class="stat-number">${this._stats?.ordersToday ?? 0}</div>
           </div>
           <div class="stat-item">
             <div class="stat-label">Items ordered</div>
-            <div class="stat-number">0 --</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-label">Returns</div>
-            <div class="stat-number">US$0 --</div>
+            <div class="stat-number">${this._stats?.itemsOrderedToday ?? 0}</div>
           </div>
           <div class="stat-item">
             <div class="stat-label">Orders fulfilled</div>
-            <div class="stat-number">0 --</div>
+            <div class="stat-number">${this._stats?.ordersFulfilledToday ?? 0}</div>
           </div>
           <div class="stat-item">
             <div class="stat-label">Orders delivered</div>
-            <div class="stat-number">0 --</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-label">Order to fulfillment time</div>
-            <div class="stat-number">0 --</div>
+            <div class="stat-number">${this._stats?.ordersDeliveredToday ?? 0}</div>
           </div>
         </div>
 
@@ -173,19 +174,6 @@ export class MerchelloOrdersListElement extends UmbElementMixin(LitElement) {
           >
             Unpaid
           </button>
-          <button
-            class="tab ${this._activeTab === "open" ? "active" : ""}"
-            @click=${() => this._handleTabClick("open")}
-          >
-            Open
-          </button>
-          <button
-            class="tab ${this._activeTab === "archived" ? "active" : ""}"
-            @click=${() => this._handleTabClick("archived")}
-          >
-            Archived
-          </button>
-          <button class="tab add-tab">+</button>
         </div>
 
         <!-- Orders Table -->
@@ -219,9 +207,7 @@ export class MerchelloOrdersListElement extends UmbElementMixin(LitElement) {
                           <th>Payment status</th>
                           <th>Fulfillment status</th>
                           <th>Items</th>
-                          <th>Delivery status</th>
                           <th>Delivery method</th>
-                          <th>Tags</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -251,9 +237,7 @@ export class MerchelloOrdersListElement extends UmbElementMixin(LitElement) {
                                 </span>
                               </td>
                               <td>${order.itemCount} item${order.itemCount !== 1 ? "s" : ""}</td>
-                              <td>${order.deliveryStatus || "--"}</td>
                               <td>${order.deliveryMethod}</td>
-                              <td>${order.tags.length > 0 ? order.tags.join(", ") : "--"}</td>
                             </tr>
                           `
                         )}

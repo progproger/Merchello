@@ -1,17 +1,17 @@
-import { LitElement as u, html as d, css as h, state as o, customElement as b } from "@umbraco-cms/backoffice/external/lit";
-import { UmbElementMixin as p } from "@umbraco-cms/backoffice/element-api";
-import { M as v } from "./merchello-api-CdBya1Dq.js";
-var m = Object.defineProperty, g = Object.getOwnPropertyDescriptor, s = (t, e, r, l) => {
-  for (var i = l > 1 ? void 0 : l ? g(e, r) : e, c = t.length - 1, n; c >= 0; c--)
-    (n = t[c]) && (i = (l ? n(e, r, i) : n(i)) || i);
-  return l && i && m(e, r, i), i;
+import { LitElement as h, html as d, css as p, state as o, customElement as b } from "@umbraco-cms/backoffice/external/lit";
+import { UmbElementMixin as v } from "@umbraco-cms/backoffice/element-api";
+import { M as u } from "./merchello-api-Il9xQut5.js";
+var g = Object.defineProperty, m = Object.getOwnPropertyDescriptor, i = (t, e, s, l) => {
+  for (var r = l > 1 ? void 0 : l ? m(e, s) : e, c = t.length - 1, n; c >= 0; c--)
+    (n = t[c]) && (r = (l ? n(e, s, r) : n(r)) || r);
+  return l && r && g(e, s, r), r;
 };
-let a = class extends p(u) {
+let a = class extends v(h) {
   constructor() {
-    super(...arguments), this._orders = [], this._loading = !0, this._error = null, this._page = 1, this._pageSize = 50, this._totalItems = 0, this._totalPages = 0, this._activeTab = "all", this._selectedOrders = /* @__PURE__ */ new Set();
+    super(...arguments), this._orders = [], this._loading = !0, this._error = null, this._page = 1, this._pageSize = 50, this._totalItems = 0, this._totalPages = 0, this._activeTab = "all", this._selectedOrders = /* @__PURE__ */ new Set(), this._stats = null;
   }
   connectedCallback() {
-    super.connectedCallback(), this._loadOrders();
+    super.connectedCallback(), this._loadOrders(), this._loadStats();
   }
   async _loadOrders() {
     this._loading = !0, this._error = null;
@@ -22,25 +22,29 @@ let a = class extends p(u) {
       sortDir: "desc"
     };
     this._activeTab === "unfulfilled" ? t.fulfillmentStatus = "unfulfilled" : this._activeTab === "unpaid" && (t.paymentStatus = "unpaid");
-    const { data: e, error: r } = await v.getOrders(t);
-    if (r) {
-      this._error = r.message, this._loading = !1;
+    const { data: e, error: s } = await u.getOrders(t);
+    if (s) {
+      this._error = s.message, this._loading = !1;
       return;
     }
     e && (this._orders = e.items, this._totalItems = e.totalItems, this._totalPages = e.totalPages), this._loading = !1;
+  }
+  async _loadStats() {
+    const { data: t } = await u.getOrderStats();
+    t && (this._stats = t);
   }
   _handleTabClick(t) {
     this._activeTab = t, this._page = 1, this._loadOrders();
   }
   _handleSelectAll(t) {
-    t.target.checked ? this._selectedOrders = new Set(this._orders.map((r) => r.id)) : this._selectedOrders = /* @__PURE__ */ new Set(), this.requestUpdate();
+    t.target.checked ? this._selectedOrders = new Set(this._orders.map((s) => s.id)) : this._selectedOrders = /* @__PURE__ */ new Set(), this.requestUpdate();
   }
   _handleSelectOrder(t, e) {
     e.target.checked ? this._selectedOrders.add(t) : this._selectedOrders.delete(t), this.requestUpdate();
   }
   _formatDate(t) {
-    const e = new Date(t), l = Math.abs((/* @__PURE__ */ new Date()).getTime() - e.getTime()), i = Math.ceil(l / (1e3 * 60 * 60 * 24));
-    return i === 0 ? `Today at ${e.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}` : i === 1 ? `Yesterday at ${e.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}` : i < 7 ? `${e.toLocaleDateString("en-US", { weekday: "long" })} at ${e.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}` : e.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    const e = new Date(t), l = Math.abs((/* @__PURE__ */ new Date()).getTime() - e.getTime()), r = Math.ceil(l / (1e3 * 60 * 60 * 24));
+    return r === 0 ? `Today at ${e.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}` : r === 1 ? `Yesterday at ${e.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}` : r < 7 ? `${e.toLocaleDateString("en-US", { weekday: "long" })} at ${e.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}` : e.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   }
   _formatCurrency(t) {
     return new Intl.NumberFormat("en-US", {
@@ -69,27 +73,19 @@ let a = class extends p(u) {
           <div class="stat-item">
             <div class="stat-label">Today</div>
             <div class="stat-value">Orders</div>
-            <div class="stat-number">0 --</div>
+            <div class="stat-number">${this._stats?.ordersToday ?? 0}</div>
           </div>
           <div class="stat-item">
             <div class="stat-label">Items ordered</div>
-            <div class="stat-number">0 --</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-label">Returns</div>
-            <div class="stat-number">US$0 --</div>
+            <div class="stat-number">${this._stats?.itemsOrderedToday ?? 0}</div>
           </div>
           <div class="stat-item">
             <div class="stat-label">Orders fulfilled</div>
-            <div class="stat-number">0 --</div>
+            <div class="stat-number">${this._stats?.ordersFulfilledToday ?? 0}</div>
           </div>
           <div class="stat-item">
             <div class="stat-label">Orders delivered</div>
-            <div class="stat-number">0 --</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-label">Order to fulfillment time</div>
-            <div class="stat-number">0 --</div>
+            <div class="stat-number">${this._stats?.ordersDeliveredToday ?? 0}</div>
           </div>
         </div>
 
@@ -113,19 +109,6 @@ let a = class extends p(u) {
           >
             Unpaid
           </button>
-          <button
-            class="tab ${this._activeTab === "open" ? "active" : ""}"
-            @click=${() => this._handleTabClick("open")}
-          >
-            Open
-          </button>
-          <button
-            class="tab ${this._activeTab === "archived" ? "active" : ""}"
-            @click=${() => this._handleTabClick("archived")}
-          >
-            Archived
-          </button>
-          <button class="tab add-tab">+</button>
         </div>
 
         <!-- Orders Table -->
@@ -153,9 +136,7 @@ let a = class extends p(u) {
                           <th>Payment status</th>
                           <th>Fulfillment status</th>
                           <th>Items</th>
-                          <th>Delivery status</th>
                           <th>Delivery method</th>
-                          <th>Tags</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -185,9 +166,7 @@ let a = class extends p(u) {
                                 </span>
                               </td>
                               <td>${t.itemCount} item${t.itemCount !== 1 ? "s" : ""}</td>
-                              <td>${t.deliveryStatus || "--"}</td>
                               <td>${t.deliveryMethod}</td>
-                              <td>${t.tags.length > 0 ? t.tags.join(", ") : "--"}</td>
                             </tr>
                           `
     )}
@@ -224,7 +203,7 @@ let a = class extends p(u) {
     `;
   }
 };
-a.styles = h`
+a.styles = p`
     :host {
       display: block;
       padding: var(--uui-size-layout-1);
@@ -450,34 +429,37 @@ a.styles = h`
       cursor: not-allowed;
     }
   `;
-s([
+i([
   o()
 ], a.prototype, "_orders", 2);
-s([
+i([
   o()
 ], a.prototype, "_loading", 2);
-s([
+i([
   o()
 ], a.prototype, "_error", 2);
-s([
+i([
   o()
 ], a.prototype, "_page", 2);
-s([
+i([
   o()
 ], a.prototype, "_pageSize", 2);
-s([
+i([
   o()
 ], a.prototype, "_totalItems", 2);
-s([
+i([
   o()
 ], a.prototype, "_totalPages", 2);
-s([
+i([
   o()
 ], a.prototype, "_activeTab", 2);
-s([
+i([
   o()
 ], a.prototype, "_selectedOrders", 2);
-a = s([
+i([
+  o()
+], a.prototype, "_stats", 2);
+a = i([
   b("merchello-orders-list")
 ], a);
 const x = a;
@@ -485,4 +467,4 @@ export {
   a as MerchelloOrdersListElement,
   x as default
 };
-//# sourceMappingURL=orders-list.element-CuWfjCpD.js.map
+//# sourceMappingURL=orders-list.element-BHUiEkY5.js.map

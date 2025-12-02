@@ -131,6 +131,35 @@ public class OrderListResponse
 }
 
 /// <summary>
+/// Order statistics for dashboard
+/// </summary>
+public class OrderStatsDto
+{
+    public int OrdersToday { get; set; }
+    public int ItemsOrderedToday { get; set; }
+    public int OrdersFulfilledToday { get; set; }
+    public int OrdersDeliveredToday { get; set; }
+}
+
+/// <summary>
+/// Dashboard statistics with monthly metrics and percentage changes
+/// </summary>
+public class DashboardStatsDto
+{
+    public int OrdersThisMonth { get; set; }
+    public decimal OrdersChangePercent { get; set; }
+
+    public decimal RevenueThisMonth { get; set; }
+    public decimal RevenueChangePercent { get; set; }
+
+    public int ProductCount { get; set; }
+    public int ProductCountChange { get; set; }
+
+    public int CustomerCount { get; set; }
+    public int CustomerCountChange { get; set; }
+}
+
+/// <summary>
 /// Query parameters for order list
 /// </summary>
 public class OrderListQuery
@@ -143,4 +172,113 @@ public class OrderListQuery
     public string? Search { get; set; }
     public string SortBy { get; set; } = "date";
     public string SortDir { get; set; } = "desc";
+}
+
+// ============================================
+// Fulfillment DTOs
+// ============================================
+
+/// <summary>
+/// Request to create a new shipment
+/// </summary>
+public class CreateShipmentRequestDto
+{
+    /// <summary>
+    /// Line items to include in shipment. Key: LineItemId, Value: Quantity
+    /// </summary>
+    public Dictionary<Guid, int> LineItems { get; set; } = new();
+
+    /// <summary>
+    /// Carrier name (e.g., "UPS", "FedEx", "DHL")
+    /// </summary>
+    public string? Carrier { get; set; }
+
+    /// <summary>
+    /// Tracking number for the shipment
+    /// </summary>
+    public string? TrackingNumber { get; set; }
+
+    /// <summary>
+    /// URL to track the shipment
+    /// </summary>
+    public string? TrackingUrl { get; set; }
+}
+
+/// <summary>
+/// Request to update shipment tracking info
+/// </summary>
+public class UpdateShipmentRequestDto
+{
+    public string? Carrier { get; set; }
+    public string? TrackingNumber { get; set; }
+    public string? TrackingUrl { get; set; }
+    public DateTime? ActualDeliveryDate { get; set; }
+}
+
+/// <summary>
+/// Summary of fulfillment state for the entire invoice (used in fulfillment dialog)
+/// </summary>
+public class FulfillmentSummaryDto
+{
+    public Guid InvoiceId { get; set; }
+    public string InvoiceNumber { get; set; } = string.Empty;
+    public string OverallStatus { get; set; } = "Unfulfilled"; // Unfulfilled, Partial, Fulfilled
+    public List<OrderFulfillmentDto> Orders { get; set; } = new();
+}
+
+/// <summary>
+/// Order fulfillment state showing shipped vs unshipped items
+/// </summary>
+public class OrderFulfillmentDto
+{
+    public Guid OrderId { get; set; }
+    public Guid WarehouseId { get; set; }
+    public string WarehouseName { get; set; } = string.Empty;
+    public OrderStatus Status { get; set; }
+    public string DeliveryMethod { get; set; } = string.Empty;
+    public List<FulfillmentLineItemDto> LineItems { get; set; } = new();
+    public List<ShipmentDetailDto> Shipments { get; set; } = new();
+}
+
+/// <summary>
+/// Line item with fulfillment quantities
+/// </summary>
+public class FulfillmentLineItemDto
+{
+    public Guid Id { get; set; }
+    public string? Sku { get; set; }
+    public string? Name { get; set; }
+    public int OrderedQuantity { get; set; }
+    public int ShippedQuantity { get; set; }
+    public int RemainingQuantity => OrderedQuantity - ShippedQuantity;
+    public string? ImageUrl { get; set; }
+    public decimal Amount { get; set; }
+}
+
+/// <summary>
+/// Full shipment details for display
+/// </summary>
+public class ShipmentDetailDto
+{
+    public Guid Id { get; set; }
+    public Guid OrderId { get; set; }
+    public string? Carrier { get; set; }
+    public string? TrackingNumber { get; set; }
+    public string? TrackingUrl { get; set; }
+    public DateTime DateCreated { get; set; }
+    public DateTime? ActualDeliveryDate { get; set; }
+    public List<ShipmentLineItemDto> LineItems { get; set; } = new();
+}
+
+/// <summary>
+/// Line item within a shipment
+/// </summary>
+public class ShipmentLineItemDto
+{
+    public Guid Id { get; set; }
+    public Guid LineItemId { get; set; }
+    public string? Sku { get; set; }
+    public string? Name { get; set; }
+    public int Quantity { get; set; }
+    public string? ImageUrl { get; set; }
 }

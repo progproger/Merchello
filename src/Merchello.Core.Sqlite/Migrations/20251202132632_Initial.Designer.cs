@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Merchello.Core.Sqlite.Migrations
 {
     [DbContext(typeof(MerchelloDbContext))]
-    [Migration("20251202105151_Initial")]
+    [Migration("20251202132632_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -729,6 +729,9 @@ namespace Merchello.Core.Sqlite.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("CourierId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("DateCreated")
                         .HasColumnType("TEXT");
 
                     b.Property<bool?>("IsDeliveryDateGuaranteed")

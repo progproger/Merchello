@@ -394,7 +394,8 @@ namespace Merchello.Core.Sqlite.Migrations
                     Carrier = table.Column<string>(type: "TEXT", nullable: true),
                     RequestedDeliveryDate = table.Column<DateTime>(type: "TEXT", nullable: true),
                     IsDeliveryDateGuaranteed = table.Column<bool>(type: "INTEGER", nullable: true),
-                    ActualDeliveryDate = table.Column<DateTime>(type: "TEXT", nullable: true)
+                    ActualDeliveryDate = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DateCreated = table.Column<DateTime>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
