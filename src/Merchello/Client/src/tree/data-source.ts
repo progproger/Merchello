@@ -11,6 +11,15 @@ export class MerchelloTreeDataSource extends UmbControllerBase implements UmbTre
   async getRootItems(_args: UmbTreeRootItemsRequestArgs) {
     const rootItems: Array<MerchelloTreeItemModel> = [
       {
+        entityType: "merchello-orders",
+        unique: "orders",
+        name: "Orders",
+        hasChildren: false,
+        isFolder: false,
+        icon: "icon-receipt-dollar",
+        parent: { unique: null, entityType: "merchello-root" },
+      },
+      {
         entityType: "merchello-settings",
         unique: "settings",
         name: "Settings",

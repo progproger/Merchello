@@ -9,15 +9,63 @@ public class InvoiceDbMapping : IEntityTypeConfiguration<Invoice>
 {
     public void Configure(EntityTypeBuilder<Invoice> builder)
     {
-            builder.ToTable("merchelloInvoices");
-            builder.HasKey(x => x.Id);
-            builder.Property(x => x.Id).IsRequired();
-            builder.Property(x => x.Adjustments).ToJsonConversion(3000);
-            builder.Property(x => x.Notes).ToJsonConversion(3000);
-            builder.Property(x => x.AdjustedSubTotal).HasPrecision(18, 2);
-            builder.Property(x => x.Discount).HasPrecision(18, 2);
-            builder.Property(x => x.SubTotal).HasPrecision(18, 2);
-            builder.Property(x => x.Tax).HasPrecision(18, 2);
-            builder.Property(x => x.Total).HasPrecision(18, 2);
+        builder.ToTable("merchelloInvoices");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).IsRequired();
+
+        // Invoice number and channel
+        builder.Property(x => x.InvoiceNumber).HasMaxLength(50);
+        builder.Property(x => x.Channel).HasMaxLength(100);
+
+        // Billing address (owned entity with column prefix)
+        builder.OwnsOne(x => x.BillingAddress, addr =>
+        {
+            addr.Property(a => a.Name).HasColumnName("BillingName").HasMaxLength(200);
+            addr.Property(a => a.Company).HasColumnName("BillingCompany").HasMaxLength(200);
+            addr.Property(a => a.AddressOne).HasColumnName("BillingAddressOne").HasMaxLength(500);
+            addr.Property(a => a.AddressTwo).HasColumnName("BillingAddressTwo").HasMaxLength(500);
+            addr.Property(a => a.TownCity).HasColumnName("BillingTownCity").HasMaxLength(200);
+            addr.Property(a => a.PostalCode).HasColumnName("BillingPostalCode").HasMaxLength(20);
+            addr.Property(a => a.Country).HasColumnName("BillingCountry").HasMaxLength(100);
+            addr.Property(a => a.CountryCode).HasColumnName("BillingCountryCode").HasMaxLength(10);
+            addr.Property(a => a.Email).HasColumnName("BillingEmail").HasMaxLength(254);
+            addr.Property(a => a.Phone).HasColumnName("BillingPhone").HasMaxLength(50);
+            addr.OwnsOne(a => a.CountyState, cs =>
+            {
+                cs.Property(c => c.Name).HasColumnName("BillingCountyStateName").HasMaxLength(200);
+                cs.Property(c => c.RegionCode).HasColumnName("BillingCountyStateCode").HasMaxLength(10);
+            });
+        });
+
+        // Shipping address (owned entity with column prefix)
+        builder.OwnsOne(x => x.ShippingAddress, addr =>
+        {
+            addr.Property(a => a.Name).HasColumnName("ShippingName").HasMaxLength(200);
+            addr.Property(a => a.Company).HasColumnName("ShippingCompany").HasMaxLength(200);
+            addr.Property(a => a.AddressOne).HasColumnName("ShippingAddressOne").HasMaxLength(500);
+            addr.Property(a => a.AddressTwo).HasColumnName("ShippingAddressTwo").HasMaxLength(500);
+            addr.Property(a => a.TownCity).HasColumnName("ShippingTownCity").HasMaxLength(200);
+            addr.Property(a => a.PostalCode).HasColumnName("ShippingPostalCode").HasMaxLength(20);
+            addr.Property(a => a.Country).HasColumnName("ShippingCountry").HasMaxLength(100);
+            addr.Property(a => a.CountryCode).HasColumnName("ShippingCountryCode").HasMaxLength(10);
+            addr.Property(a => a.Email).HasColumnName("ShippingEmail").HasMaxLength(254);
+            addr.Property(a => a.Phone).HasColumnName("ShippingPhone").HasMaxLength(50);
+            addr.OwnsOne(a => a.CountyState, cs =>
+            {
+                cs.Property(c => c.Name).HasColumnName("ShippingCountyStateName").HasMaxLength(200);
+                cs.Property(c => c.RegionCode).HasColumnName("ShippingCountyStateCode").HasMaxLength(10);
+            });
+        });
+
+        // JSON conversions
+        builder.Property(x => x.Adjustments).ToJsonConversion(3000);
+        builder.Property(x => x.Notes).ToJsonConversion(3000);
+
+        // Decimal precision
+        builder.Property(x => x.AdjustedSubTotal).HasPrecision(18, 2);
+        builder.Property(x => x.Discount).HasPrecision(18, 2);
+        builder.Property(x => x.SubTotal).HasPrecision(18, 2);
+        builder.Property(x => x.Tax).HasPrecision(18, 2);
+        builder.Property(x => x.Total).HasPrecision(18, 2);
     }
 }

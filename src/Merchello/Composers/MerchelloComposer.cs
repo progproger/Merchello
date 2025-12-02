@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using Merchello.Core;
+using Merchello.Core.Accounting.Startup;
 using Merchello.Core.Data;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.AspNetCore.Mvc.Controllers;
@@ -24,6 +25,9 @@ namespace Merchello.Composers
 
             // Register Merchello EF Core migration handler
             builder.AddNotificationAsyncHandler<UmbracoApplicationStartedNotification, RunMerchMigration>();
+
+            // Register seed data handler (runs after migrations, only seeds if no data exists)
+            builder.AddNotificationAsyncHandler<UmbracoApplicationStartedNotification, SeedDataNotificationHandler>();
 
             builder.Services.AddSingleton<IOperationIdHandler, CustomOperationHandler>();
 

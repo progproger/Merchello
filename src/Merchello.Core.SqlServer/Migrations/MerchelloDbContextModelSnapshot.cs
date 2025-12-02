@@ -37,12 +37,28 @@ namespace Merchello.Core.SqlServer.Migrations
                         .HasMaxLength(3000)
                         .HasColumnType("nvarchar(3000)");
 
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<Guid?>("CustomerId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("DateCreated")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("DateUpdated")
+                        .HasColumnType("datetime2");
 
                     b.Property<decimal>("Discount")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("InvoiceNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("Notes")
                         .IsRequired()
@@ -1027,6 +1043,193 @@ namespace Merchello.Core.SqlServer.Migrations
                     b.HasIndex("ShippingOptionId");
 
                     b.ToTable("merchelloProductRootShippingOptions");
+                });
+
+            modelBuilder.Entity("Merchello.Core.Accounting.Models.Invoice", b =>
+                {
+                    b.OwnsOne("Merchello.Core.Locality.Models.Address", "BillingAddress", b1 =>
+                        {
+                            b1.Property<Guid>("InvoiceId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<string>("AddressOne")
+                                .HasMaxLength(500)
+                                .HasColumnType("nvarchar(500)")
+                                .HasColumnName("BillingAddressOne");
+
+                            b1.Property<string>("AddressTwo")
+                                .HasMaxLength(500)
+                                .HasColumnType("nvarchar(500)")
+                                .HasColumnName("BillingAddressTwo");
+
+                            b1.Property<string>("Company")
+                                .HasMaxLength(200)
+                                .HasColumnType("nvarchar(200)")
+                                .HasColumnName("BillingCompany");
+
+                            b1.Property<string>("Country")
+                                .HasMaxLength(100)
+                                .HasColumnType("nvarchar(100)")
+                                .HasColumnName("BillingCountry");
+
+                            b1.Property<string>("CountryCode")
+                                .HasMaxLength(10)
+                                .HasColumnType("nvarchar(10)")
+                                .HasColumnName("BillingCountryCode");
+
+                            b1.Property<string>("Email")
+                                .HasMaxLength(254)
+                                .HasColumnType("nvarchar(254)")
+                                .HasColumnName("BillingEmail");
+
+                            b1.Property<string>("Name")
+                                .HasMaxLength(200)
+                                .HasColumnType("nvarchar(200)")
+                                .HasColumnName("BillingName");
+
+                            b1.Property<string>("Phone")
+                                .HasMaxLength(50)
+                                .HasColumnType("nvarchar(50)")
+                                .HasColumnName("BillingPhone");
+
+                            b1.Property<string>("PostalCode")
+                                .HasMaxLength(20)
+                                .HasColumnType("nvarchar(20)")
+                                .HasColumnName("BillingPostalCode");
+
+                            b1.Property<string>("TownCity")
+                                .HasMaxLength(200)
+                                .HasColumnType("nvarchar(200)")
+                                .HasColumnName("BillingTownCity");
+
+                            b1.HasKey("InvoiceId");
+
+                            b1.ToTable("merchelloInvoices");
+
+                            b1.WithOwner()
+                                .HasForeignKey("InvoiceId");
+
+                            b1.OwnsOne("Merchello.Core.Locality.Models.CountyState", "CountyState", b2 =>
+                                {
+                                    b2.Property<Guid>("AddressInvoiceId")
+                                        .HasColumnType("uniqueidentifier");
+
+                                    b2.Property<string>("Name")
+                                        .HasMaxLength(200)
+                                        .HasColumnType("nvarchar(200)")
+                                        .HasColumnName("BillingCountyStateName");
+
+                                    b2.Property<string>("RegionCode")
+                                        .HasMaxLength(10)
+                                        .HasColumnType("nvarchar(10)")
+                                        .HasColumnName("BillingCountyStateCode");
+
+                                    b2.HasKey("AddressInvoiceId");
+
+                                    b2.ToTable("merchelloInvoices");
+
+                                    b2.WithOwner()
+                                        .HasForeignKey("AddressInvoiceId");
+                                });
+
+                            b1.Navigation("CountyState")
+                                .IsRequired();
+                        });
+
+                    b.OwnsOne("Merchello.Core.Locality.Models.Address", "ShippingAddress", b1 =>
+                        {
+                            b1.Property<Guid>("InvoiceId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<string>("AddressOne")
+                                .HasMaxLength(500)
+                                .HasColumnType("nvarchar(500)")
+                                .HasColumnName("ShippingAddressOne");
+
+                            b1.Property<string>("AddressTwo")
+                                .HasMaxLength(500)
+                                .HasColumnType("nvarchar(500)")
+                                .HasColumnName("ShippingAddressTwo");
+
+                            b1.Property<string>("Company")
+                                .HasMaxLength(200)
+                                .HasColumnType("nvarchar(200)")
+                                .HasColumnName("ShippingCompany");
+
+                            b1.Property<string>("Country")
+                                .HasMaxLength(100)
+                                .HasColumnType("nvarchar(100)")
+                                .HasColumnName("ShippingCountry");
+
+                            b1.Property<string>("CountryCode")
+                                .HasMaxLength(10)
+                                .HasColumnType("nvarchar(10)")
+                                .HasColumnName("ShippingCountryCode");
+
+                            b1.Property<string>("Email")
+                                .HasMaxLength(254)
+                                .HasColumnType("nvarchar(254)")
+                                .HasColumnName("ShippingEmail");
+
+                            b1.Property<string>("Name")
+                                .HasMaxLength(200)
+                                .HasColumnType("nvarchar(200)")
+                                .HasColumnName("ShippingName");
+
+                            b1.Property<string>("Phone")
+                                .HasMaxLength(50)
+                                .HasColumnType("nvarchar(50)")
+                                .HasColumnName("ShippingPhone");
+
+                            b1.Property<string>("PostalCode")
+                                .HasMaxLength(20)
+                                .HasColumnType("nvarchar(20)")
+                                .HasColumnName("ShippingPostalCode");
+
+                            b1.Property<string>("TownCity")
+                                .HasMaxLength(200)
+                                .HasColumnType("nvarchar(200)")
+                                .HasColumnName("ShippingTownCity");
+
+                            b1.HasKey("InvoiceId");
+
+                            b1.ToTable("merchelloInvoices");
+
+                            b1.WithOwner()
+                                .HasForeignKey("InvoiceId");
+
+                            b1.OwnsOne("Merchello.Core.Locality.Models.CountyState", "CountyState", b2 =>
+                                {
+                                    b2.Property<Guid>("AddressInvoiceId")
+                                        .HasColumnType("uniqueidentifier");
+
+                                    b2.Property<string>("Name")
+                                        .HasMaxLength(200)
+                                        .HasColumnType("nvarchar(200)")
+                                        .HasColumnName("ShippingCountyStateName");
+
+                                    b2.Property<string>("RegionCode")
+                                        .HasMaxLength(10)
+                                        .HasColumnType("nvarchar(10)")
+                                        .HasColumnName("ShippingCountyStateCode");
+
+                                    b2.HasKey("AddressInvoiceId");
+
+                                    b2.ToTable("merchelloInvoices");
+
+                                    b2.WithOwner()
+                                        .HasForeignKey("AddressInvoiceId");
+                                });
+
+                            b1.Navigation("CountyState")
+                                .IsRequired();
+                        });
+
+                    b.Navigation("BillingAddress")
+                        .IsRequired();
+
+                    b.Navigation("ShippingAddress")
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Merchello.Core.Accounting.Models.LineItem", b =>

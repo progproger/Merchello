@@ -1,9 +1,18 @@
 import { UmbTreeRepositoryBase as o } from "@umbraco-cms/backoffice/tree";
 import { UmbControllerBase as s } from "@umbraco-cms/backoffice/class-api";
 const n = "merchello-root";
-class a extends s {
+class l extends s {
   async getRootItems(e) {
     const t = [
+      {
+        entityType: "merchello-orders",
+        unique: "orders",
+        name: "Orders",
+        hasChildren: !1,
+        isFolder: !1,
+        icon: "icon-receipt-dollar",
+        parent: { unique: null, entityType: "merchello-root" }
+      },
       {
         entityType: "merchello-settings",
         unique: "settings",
@@ -25,7 +34,7 @@ class a extends s {
 }
 class c extends o {
   constructor(e) {
-    super(e, a);
+    super(e, l);
   }
   async requestTreeRoot() {
     return { data: {
@@ -41,4 +50,4 @@ export {
   c as MerchelloTreeRepository,
   c as api
 };
-//# sourceMappingURL=repository-ChCzVTZk.js.map
+//# sourceMappingURL=repository-CyRl41dS.js.map

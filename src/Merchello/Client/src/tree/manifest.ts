@@ -24,7 +24,7 @@ export const manifests: Array<UmbExtensionManifest> = [
     kind: "default",
     alias: "Merchello.TreeItem",
     name: "Merchello Tree Item",
-    forEntityTypes: ["merchello-root", "merchello-settings"],
+    forEntityTypes: ["merchello-root", "merchello-settings", "merchello-orders", "merchello-order"],
   },
 
   // Menu Item to add tree to the menu

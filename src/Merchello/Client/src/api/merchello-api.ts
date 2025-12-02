@@ -67,10 +67,32 @@ export interface UserModel {
   groups: UserGroup[];
 }
 
+// Import order types
+import type { OrderListResponse, OrderDetailDto, OrderListParams } from '../orders/types.js';
+
+// Helper to build query string from params
+function buildQueryString(params?: Record<string, unknown>): string {
+  if (!params) return '';
+  const searchParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== '') {
+      searchParams.append(key, String(value));
+    }
+  }
+  return searchParams.toString();
+}
+
 // API methods
 export const MerchelloApi = {
   ping: () => apiGet<string>('ping'),
   whatsMyName: () => apiGet<string>('whatsMyName'),
   whatsTheTimeMrWolf: () => apiGet<string>('whatsTheTimeMrWolf'),
   whoAmI: () => apiGet<UserModel>('whoAmI'),
+
+  // Orders API
+  getOrders: (params?: OrderListParams) => {
+    const queryString = buildQueryString(params as Record<string, unknown>);
+    return apiGet<OrderListResponse>(`orders${queryString ? `?${queryString}` : ''}`);
+  },
+  getOrder: (id: string) => apiGet<OrderDetailDto>(`orders/${id}`),
 };

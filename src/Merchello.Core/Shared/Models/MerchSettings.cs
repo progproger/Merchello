@@ -6,4 +6,9 @@ public class MerchSettings
     public Guid? RepositoryId { get; set; }
     public string? DatabaseProvider { get; set; }
     public string? ConnectionString { get; set; }
+
+    /// <summary>
+    /// Prefix for invoice numbers (e.g., "INV-")
+    /// </summary>
+    public string InvoiceNumberPrefix { get; set; } = "INV-";
 }

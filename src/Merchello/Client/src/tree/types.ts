@@ -20,3 +20,5 @@ export interface MerchelloTreeRootModel extends UmbTreeRootModel {
 
 export const MERCHELLO_ROOT_ENTITY_TYPE = "merchello-root";
 export const MERCHELLO_SETTINGS_ENTITY_TYPE = "merchello-settings";
+export const MERCHELLO_ORDERS_ENTITY_TYPE = "merchello-orders";
+export const MERCHELLO_ORDER_ENTITY_TYPE = "merchello-order";

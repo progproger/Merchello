@@ -1,4 +1,5 @@
-﻿using Merchello.Core.Shared.Extensions;
+﻿using Merchello.Core.Locality.Models;
+using Merchello.Core.Shared.Extensions;
 
 namespace Merchello.Core.Accounting.Models;
 
@@ -13,6 +14,26 @@ public class Invoice
     /// If a customer is logged in then this will be the customers id
     /// </summary>
     public Guid? CustomerId { get; set; }
+
+    /// <summary>
+    /// Human-readable invoice number (e.g., "INV-0001")
+    /// </summary>
+    public string InvoiceNumber { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Billing address for this invoice
+    /// </summary>
+    public Address BillingAddress { get; set; } = new();
+
+    /// <summary>
+    /// Shipping address for this invoice (may differ from billing)
+    /// </summary>
+    public Address ShippingAddress { get; set; } = new();
+
+    /// <summary>
+    /// Sales channel (e.g., "Online Store", "Shop", "POS")
+    /// </summary>
+    public string Channel { get; set; } = "Online Store";
 
     /// <summary>
     /// Line items on this invoice
@@ -63,4 +84,14 @@ public class Invoice
     /// Holds the Total of the invoice
     /// </summary>
     public decimal Total { get; set; }
+
+    /// <summary>
+    /// Date invoice was created
+    /// </summary>
+    public DateTime DateCreated { get; set; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// Date invoice was last updated
+    /// </summary>
+    public DateTime DateUpdated { get; set; } = DateTime.UtcNow;
 }
