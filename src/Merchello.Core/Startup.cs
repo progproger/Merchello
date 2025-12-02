@@ -73,6 +73,9 @@ public static class Startup
         builder.Services.AddSingleton<LineItemFactory>();
         builder.Services.AddSingleton<AddressFactory>();
 
+        // Database seeding
+        builder.Services.AddScoped<DbSeeder>();
+
         // Services
         builder.Services.AddScoped<ILineItemService, LineItemService>();
         builder.Services.AddScoped<ICheckoutService, CheckoutService>();

@@ -75,22 +75,6 @@ export class MerchelloStatsDashboardElement extends UmbElementMixin(LitElement) 
     return `section/merchello/workspace/merchello-order/edit/${id}`;
   }
 
-  private _getStatusBadgeColor(status: string): string {
-    switch (status.toLowerCase()) {
-      case "fulfilled":
-        return "positive";
-      case "partial":
-        return "warning";
-      case "unfulfilled":
-      default:
-        return "default";
-    }
-  }
-
-  private _getPaymentBadgeColor(status: string): string {
-    return status.toLowerCase() === "paid" ? "positive" : "warning";
-  }
-
   render() {
     if (this._loading) {
       return html`
@@ -161,14 +145,10 @@ export class MerchelloStatsDashboardElement extends UmbElementMixin(LitElement) 
                       <uui-table-cell>${order.customerName}</uui-table-cell>
                       <uui-table-cell>${this._formatDate(order.dateCreated)}</uui-table-cell>
                       <uui-table-cell>
-                        <uui-badge color=${this._getPaymentBadgeColor(order.paymentStatus)}>
-                          ${order.paymentStatus}
-                        </uui-badge>
+                        <span class="badge ${order.paymentStatus.toLowerCase()}">${order.paymentStatus}</span>
                       </uui-table-cell>
                       <uui-table-cell>
-                        <uui-badge color=${this._getStatusBadgeColor(order.fulfillmentStatus)}>
-                          ${order.fulfillmentStatus}
-                        </uui-badge>
+                        <span class="badge ${order.fulfillmentStatus.toLowerCase().replace(" ", "-")}">${order.fulfillmentStatus}</span>
                       </uui-table-cell>
                       <uui-table-cell>${this._formatCurrency(order.total)}</uui-table-cell>
                     </uui-table-row>
@@ -238,9 +218,37 @@ export class MerchelloStatsDashboardElement extends UmbElementMixin(LitElement) 
         width: 100%;
       }
 
-      uui-badge {
-        vertical-align: middle;
-        --uui-badge-inset: 0;
+      .badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 500;
+      }
+
+      .badge.paid {
+        background: #d4edda;
+        color: #155724;
+      }
+
+      .badge.unpaid {
+        background: #fff3cd;
+        color: #856404;
+      }
+
+      .badge.fulfilled {
+        background: #d4edda;
+        color: #155724;
+      }
+
+      .badge.unfulfilled {
+        background: #1b264f;
+        color: #ffffff;
+      }
+
+      .badge.partial {
+        background: #cce5ff;
+        color: #004085;
       }
 
       uui-table-cell a {

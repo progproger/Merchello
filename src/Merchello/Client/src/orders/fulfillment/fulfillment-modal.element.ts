@@ -7,7 +7,7 @@ import type {
   OrderFulfillmentDto,
   FulfillmentLineItemDto,
   CreateShipmentRequest,
-  OrderStatus,
+  ShipmentDetailDto,
 } from "../types.js";
 import type { FulfillmentModalData, FulfillmentModalValue } from "./fulfillment-modal.token.js";
 
@@ -17,6 +17,12 @@ interface SelectedItem {
   maxQuantity: number;
   name: string;
   sku: string | null;
+}
+
+interface OrderTrackingInfo {
+  carrier: string;
+  trackingNumber: string;
+  trackingUrl: string;
 }
 
 @customElement("merchello-fulfillment-modal")
@@ -30,17 +36,15 @@ export class MerchelloFulfillmentModalElement extends UmbModalBaseElement<
   @state() private _creating = false;
   @state() private _shipmentsCreated = 0;
 
-  // Selection state per order
+  // Selection state per order (orderId -> Map of lineItemId -> SelectedItem)
   @state() private _selectedItems: Map<string, Map<string, SelectedItem>> = new Map();
 
-  // Tracking form state
-  @state() private _showTrackingForm = false;
-  @state() private _carrier = "";
-  @state() private _trackingNumber = "";
-  @state() private _trackingUrl = "";
+  // Per-order tracking info
+  @state() private _orderTrackingInfo: Map<string, OrderTrackingInfo> = new Map();
 
-  // Which order is currently being worked on
-  @state() private _activeOrderId: string | null = null;
+  // Collapsible state
+  @state() private _expandedOrders: Set<string> = new Set();
+  @state() private _existingShipmentsExpanded = false;
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -62,39 +66,67 @@ export class MerchelloFulfillmentModalElement extends UmbModalBaseElement<
     this._summary = data ?? null;
     this._loading = false;
 
-    // Initialize selection state for each order
+    // Initialize state for orders with remaining items
     if (this._summary) {
+      const newTrackingInfo = new Map<string, OrderTrackingInfo>();
+      const newExpanded = new Set<string>();
+      const newSelectedItems = new Map<string, Map<string, SelectedItem>>();
+
       for (const order of this._summary.orders) {
-        this._selectedItems.set(order.orderId, new Map());
+        const hasRemainingItems = order.lineItems.some((li) => li.remainingQuantity > 0);
+        if (hasRemainingItems) {
+          newTrackingInfo.set(order.orderId, {
+            carrier: "",
+            trackingNumber: "",
+            trackingUrl: "",
+          });
+          newExpanded.add(order.orderId);
+
+          // Pre-select all remaining items by default
+          const orderSelections = new Map<string, SelectedItem>();
+          for (const item of order.lineItems) {
+            if (item.remainingQuantity > 0) {
+              orderSelections.set(item.id, {
+                lineItemId: item.id,
+                quantity: item.remainingQuantity,
+                maxQuantity: item.remainingQuantity,
+                name: item.name ?? "Unknown",
+                sku: item.sku,
+              });
+            }
+          }
+          newSelectedItems.set(order.orderId, orderSelections);
+        }
       }
-      // Set first order as active if there's only one
-      if (this._summary.orders.length === 1) {
-        this._activeOrderId = this._summary.orders[0].orderId;
-      }
+
+      this._orderTrackingInfo = newTrackingInfo;
+      this._expandedOrders = newExpanded;
+      this._selectedItems = newSelectedItems;
     }
   }
 
-  private _getStatusLabel(status: OrderStatus): string {
-    const statusMap: Record<number, string> = {
-      0: "Pending",
-      10: "Awaiting Stock",
-      20: "Ready to Fulfill",
-      30: "Processing",
-      40: "Partially Shipped",
-      50: "Shipped",
-      60: "Completed",
-      70: "Cancelled",
-      80: "On Hold",
-    };
-    return statusMap[status as number] || "Unknown";
+  private _toggleOrderExpanded(orderId: string): void {
+    const newExpanded = new Set(this._expandedOrders);
+    if (newExpanded.has(orderId)) {
+      newExpanded.delete(orderId);
+    } else {
+      newExpanded.add(orderId);
+    }
+    this._expandedOrders = newExpanded;
   }
 
-  private _getStatusClass(status: OrderStatus): string {
-    const statusNum = status as number;
-    if (statusNum >= 50) return "shipped";
-    if (statusNum >= 40) return "partial";
-    if (statusNum >= 20) return "ready";
-    return "pending";
+  private _updateOrderTracking(
+    orderId: string,
+    field: keyof OrderTrackingInfo,
+    value: string
+  ): void {
+    const current = this._orderTrackingInfo.get(orderId);
+    if (!current) return;
+
+    const updated = { ...current, [field]: value };
+    const newMap = new Map(this._orderTrackingInfo);
+    newMap.set(orderId, updated);
+    this._orderTrackingInfo = newMap;
   }
 
   private _toggleItemSelection(orderId: string, item: FulfillmentLineItemDto): void {
@@ -165,41 +197,84 @@ export class MerchelloFulfillmentModalElement extends UmbModalBaseElement<
     return Array.from(orderSelections.values()).reduce((sum, item) => sum + item.quantity, 0);
   }
 
-  private async _createShipment(orderId: string): Promise<void> {
-    const orderSelections = this._selectedItems.get(orderId);
-    if (!orderSelections || orderSelections.size === 0) return;
+  private _getOrdersWithRemainingItems(): OrderFulfillmentDto[] {
+    if (!this._summary) return [];
+    return this._summary.orders.filter((order) =>
+      order.lineItems.some((li) => li.remainingQuantity > 0)
+    );
+  }
+
+  private _getOrdersWithSelections(): OrderFulfillmentDto[] {
+    return this._getOrdersWithRemainingItems().filter(
+      (order) => this._getSelectedCount(order.orderId) > 0
+    );
+  }
+
+  private _getTotalItemsToShip(): number {
+    let total = 0;
+    for (const order of this._getOrdersWithSelections()) {
+      total += this._getTotalSelectedQuantity(order.orderId);
+    }
+    return total;
+  }
+
+  private _getAllExistingShipments(): { shipment: ShipmentDetailDto; warehouseName: string }[] {
+    if (!this._summary) return [];
+    const shipments: { shipment: ShipmentDetailDto; warehouseName: string }[] = [];
+    for (const order of this._summary.orders) {
+      for (const shipment of order.shipments) {
+        shipments.push({ shipment, warehouseName: order.warehouseName });
+      }
+    }
+    return shipments;
+  }
+
+  private async _createAllShipments(): Promise<void> {
+    const ordersToShip = this._getOrdersWithSelections();
+    if (ordersToShip.length === 0) return;
 
     this._creating = true;
+    this._error = null;
 
-    const lineItems: Record<string, number> = {};
-    for (const [lineItemId, item] of orderSelections) {
-      lineItems[lineItemId] = item.quantity;
+    let successCount = 0;
+    const errors: string[] = [];
+
+    for (const order of ordersToShip) {
+      const trackingInfo = this._orderTrackingInfo.get(order.orderId);
+      const orderSelections = this._selectedItems.get(order.orderId);
+
+      if (!orderSelections || orderSelections.size === 0) continue;
+
+      // Build line items from selections
+      const lineItems: Record<string, number> = {};
+      for (const [lineItemId, item] of orderSelections) {
+        lineItems[lineItemId] = item.quantity;
+      }
+
+      const request: CreateShipmentRequest = {
+        lineItems,
+        carrier: trackingInfo?.carrier || undefined,
+        trackingNumber: trackingInfo?.trackingNumber || undefined,
+        trackingUrl: trackingInfo?.trackingUrl || undefined,
+      };
+
+      const { error } = await MerchelloApi.createShipment(order.orderId, request);
+
+      if (error) {
+        errors.push(`${order.warehouseName}: ${error.message}`);
+      } else {
+        successCount++;
+      }
     }
-
-    const request: CreateShipmentRequest = {
-      lineItems,
-      carrier: this._carrier || undefined,
-      trackingNumber: this._trackingNumber || undefined,
-      trackingUrl: this._trackingUrl || undefined,
-    };
-
-    const { error } = await MerchelloApi.createShipment(orderId, request);
 
     this._creating = false;
+    this._shipmentsCreated += successCount;
 
-    if (error) {
-      this._error = error.message;
-      return;
+    if (errors.length > 0) {
+      this._error = `Some shipments failed: ${errors.join("; ")}`;
     }
 
-    this._shipmentsCreated++;
-    this._clearSelection(orderId);
-    this._carrier = "";
-    this._trackingNumber = "";
-    this._trackingUrl = "";
-    this._showTrackingForm = false;
-
-    // Reload the summary to show updated state
+    // Reload to show updated state
     await this._loadFulfillmentSummary();
   }
 
@@ -232,237 +307,122 @@ export class MerchelloFulfillmentModalElement extends UmbModalBaseElement<
     });
   }
 
-  private _renderUnfulfilledItems(order: OrderFulfillmentDto): unknown {
-    const unfulfilledItems = order.lineItems.filter((li) => li.remainingQuantity > 0);
-    if (unfulfilledItems.length === 0) {
-      return html`<div class="empty-message">All items have been shipped</div>`;
-    }
+  private _renderShipmentCard(order: OrderFulfillmentDto): unknown {
+    const remainingItems = order.lineItems.filter((li) => li.remainingQuantity > 0);
+    if (remainingItems.length === 0) return nothing;
 
+    const isExpanded = this._expandedOrders.has(order.orderId);
+    const trackingInfo = this._orderTrackingInfo.get(order.orderId);
     const orderSelections = this._selectedItems.get(order.orderId) ?? new Map();
-
-    return html`
-      <div class="section-header">
-        <span>Unfulfilled Items</span>
-        <div class="section-actions">
-          <uui-button
-            look="secondary"
-            compact
-            label="Select All"
-            @click=${() => this._selectAllItems(order.orderId)}
-          >
-            Select All
-          </uui-button>
-          ${orderSelections.size > 0
-            ? html`
-                <uui-button
-                  look="secondary"
-                  compact
-                  label="Clear"
-                  @click=${() => this._clearSelection(order.orderId)}
-                >
-                  Clear
-                </uui-button>
-              `
-            : nothing}
-        </div>
-      </div>
-      <div class="items-list">
-        ${unfulfilledItems.map((item) => {
-          const isSelected = orderSelections.has(item.id);
-          const selectedItem = orderSelections.get(item.id);
-
-          return html`
-            <div class="item-row ${isSelected ? "selected" : ""}">
-              <input
-                type="checkbox"
-                .checked=${isSelected}
-                @change=${() => this._toggleItemSelection(order.orderId, item)}
-              />
-              <div class="item-image">
-                ${item.imageUrl
-                  ? html`<img src="${item.imageUrl}" alt="${item.name}" />`
-                  : html`<div class="placeholder-image"></div>`}
-              </div>
-              <div class="item-details">
-                <div class="item-name">${item.name}</div>
-                <div class="item-sku">${item.sku || "No SKU"}</div>
-              </div>
-              <div class="item-quantity">
-                ${isSelected
-                  ? html`
-                      <input
-                        type="number"
-                        min="1"
-                        max="${item.remainingQuantity}"
-                        .value=${String(selectedItem?.quantity ?? item.remainingQuantity)}
-                        @input=${(e: Event) =>
-                          this._updateItemQuantity(
-                            order.orderId,
-                            item.id,
-                            parseInt((e.target as HTMLInputElement).value) || 1
-                          )}
-                      />
-                      <span class="qty-label">/ ${item.remainingQuantity} remaining</span>
-                    `
-                  : html`<span class="qty-label">${item.remainingQuantity} remaining</span>`}
-              </div>
-            </div>
-          `;
-        })}
-      </div>
-    `;
-  }
-
-  private _renderExistingShipments(order: OrderFulfillmentDto): unknown {
-    if (order.shipments.length === 0) {
-      return nothing;
-    }
-
-    return html`
-      <div class="shipments-section">
-        <div class="section-header">
-          <span>Existing Shipments (${order.shipments.length})</span>
-        </div>
-        <div class="shipments-list">
-          ${order.shipments.map(
-            (shipment) => html`
-              <div class="shipment-card">
-                <div class="shipment-header">
-                  <span class="shipment-carrier">${shipment.carrier || "No carrier"}</span>
-                  ${shipment.trackingNumber
-                    ? html`<span class="tracking-number">${shipment.trackingNumber}</span>`
-                    : nothing}
-                  <span class="shipment-date">${this._formatDate(shipment.dateCreated)}</span>
-                </div>
-                <div class="shipment-items">
-                  ${shipment.lineItems.map(
-                    (li) => html`
-                      <span class="shipment-item">${li.name} × ${li.quantity}</span>
-                    `
-                  )}
-                </div>
-                <div class="shipment-actions">
-                  ${shipment.trackingUrl
-                    ? html`
-                        <a href="${shipment.trackingUrl}" target="_blank" class="track-link">
-                          Track
-                        </a>
-                      `
-                    : nothing}
-                  <uui-button
-                    look="secondary"
-                    color="danger"
-                    compact
-                    label="Delete"
-                    @click=${() => this._deleteShipment(shipment.id)}
-                  >
-                    Delete
-                  </uui-button>
-                </div>
-              </div>
-            `
-          )}
-        </div>
-      </div>
-    `;
-  }
-
-  private _renderOrderCard(order: OrderFulfillmentDto): unknown {
     const selectedCount = this._getSelectedCount(order.orderId);
-    const isExpanded = this._activeOrderId === order.orderId || this._summary?.orders.length === 1;
+    const totalSelected = this._getTotalSelectedQuantity(order.orderId);
+    const totalRemaining = remainingItems.reduce((sum, li) => sum + li.remainingQuantity, 0);
 
     return html`
-      <div class="order-card">
+      <div class="shipment-card ${selectedCount > 0 ? "has-selection" : ""}">
         <div
-          class="order-header"
-          @click=${() => {
-            this._activeOrderId = this._activeOrderId === order.orderId ? null : order.orderId;
-          }}
+          class="shipment-header"
+          @click=${() => this._toggleOrderExpanded(order.orderId)}
         >
-          <div class="order-info">
+          <div class="header-info">
+            <uui-icon name="${isExpanded ? "icon-navigation-down" : "icon-navigation-right"}"></uui-icon>
             <span class="warehouse-name">${order.warehouseName}</span>
-            <span class="status-badge ${this._getStatusClass(order.status)}">
-              ${this._getStatusLabel(order.status)}
+            <span class="item-count">
+              ${selectedCount > 0
+                ? `${totalSelected} of ${totalRemaining} selected`
+                : `${totalRemaining} item${totalRemaining !== 1 ? "s" : ""} to ship`}
             </span>
           </div>
-          <div class="order-summary">
+          <div class="header-meta">
             <span class="delivery-method">${order.deliveryMethod}</span>
-            <uui-icon name="${isExpanded ? "icon-navigation-up" : "icon-navigation-down"}"></uui-icon>
           </div>
         </div>
 
         ${isExpanded
           ? html`
-              <div class="order-content">
-                ${this._renderUnfulfilledItems(order)}
-                ${this._renderExistingShipments(order)}
+              <div class="shipment-content">
+                <div class="items-section">
+                  <div class="items-header">
+                    <h4>Items to ship</h4>
+                    <div class="selection-actions">
+                      <uui-button
+                        look="secondary"
+                        compact
+                        label="Select All"
+                        @click=${() => this._selectAllItems(order.orderId)}
+                      >
+                        Select All
+                      </uui-button>
+                      ${selectedCount > 0
+                        ? html`
+                            <uui-button
+                              look="secondary"
+                              compact
+                              label="Clear"
+                              @click=${() => this._clearSelection(order.orderId)}
+                            >
+                              Clear
+                            </uui-button>
+                          `
+                        : nothing}
+                    </div>
+                  </div>
+                  <div class="items-list">
+                    ${remainingItems.map((item) => this._renderLineItem(order.orderId, item, orderSelections))}
+                  </div>
+                </div>
 
                 ${selectedCount > 0
                   ? html`
-                      <div class="create-shipment-section">
-                        <div
-                          class="tracking-toggle"
-                          @click=${() => (this._showTrackingForm = !this._showTrackingForm)}
-                        >
-                          <uui-icon
-                            name="${this._showTrackingForm ? "icon-navigation-down" : "icon-navigation-right"}"
-                          ></uui-icon>
-                          Add Tracking Info (optional)
-                        </div>
-
-                        ${this._showTrackingForm
-                          ? html`
-                              <div class="tracking-form">
-                                <div class="form-row">
-                                  <label>
-                                    Carrier
-                                    <input
-                                      type="text"
-                                      placeholder="e.g., UPS, FedEx, DHL"
-                                      .value=${this._carrier}
-                                      @input=${(e: Event) =>
-                                        (this._carrier = (e.target as HTMLInputElement).value)}
-                                    />
-                                  </label>
-                                  <label>
-                                    Tracking Number
-                                    <input
-                                      type="text"
-                                      placeholder="e.g., 1Z999AA10123456784"
-                                      .value=${this._trackingNumber}
-                                      @input=${(e: Event) =>
-                                        (this._trackingNumber = (e.target as HTMLInputElement).value)}
-                                    />
-                                  </label>
-                                </div>
-                                <div class="form-row">
-                                  <label class="full-width">
-                                    Tracking URL
-                                    <input
-                                      type="text"
-                                      placeholder="https://..."
-                                      .value=${this._trackingUrl}
-                                      @input=${(e: Event) =>
-                                        (this._trackingUrl = (e.target as HTMLInputElement).value)}
-                                    />
-                                  </label>
-                                </div>
-                              </div>
-                            `
-                          : nothing}
-
-                        <div class="create-action">
-                          <span class="selected-summary">
-                            ${this._getTotalSelectedQuantity(order.orderId)} items selected
-                          </span>
-                          <uui-button
-                            look="primary"
-                            label="Create Shipment"
-                            ?disabled=${this._creating}
-                            @click=${() => this._createShipment(order.orderId)}
-                          >
-                            ${this._creating ? "Creating..." : "Create Shipment"}
-                          </uui-button>
+                      <div class="tracking-section">
+                        <h4>Tracking Information (optional)</h4>
+                        <div class="tracking-form">
+                          <div class="form-row">
+                            <label>
+                              Carrier
+                              <input
+                                type="text"
+                                placeholder="e.g., UPS, FedEx, DHL"
+                                .value=${trackingInfo?.carrier ?? ""}
+                                @input=${(e: Event) =>
+                                  this._updateOrderTracking(
+                                    order.orderId,
+                                    "carrier",
+                                    (e.target as HTMLInputElement).value
+                                  )}
+                              />
+                            </label>
+                            <label>
+                              Tracking Number
+                              <input
+                                type="text"
+                                placeholder="e.g., 1Z999AA10123456784"
+                                .value=${trackingInfo?.trackingNumber ?? ""}
+                                @input=${(e: Event) =>
+                                  this._updateOrderTracking(
+                                    order.orderId,
+                                    "trackingNumber",
+                                    (e.target as HTMLInputElement).value
+                                  )}
+                              />
+                            </label>
+                          </div>
+                          <div class="form-row">
+                            <label class="full-width">
+                              Tracking URL
+                              <input
+                                type="text"
+                                placeholder="https://..."
+                                .value=${trackingInfo?.trackingUrl ?? ""}
+                                @input=${(e: Event) =>
+                                  this._updateOrderTracking(
+                                    order.orderId,
+                                    "trackingUrl",
+                                    (e.target as HTMLInputElement).value
+                                  )}
+                              />
+                            </label>
+                          </div>
                         </div>
                       </div>
                     `
@@ -474,7 +434,124 @@ export class MerchelloFulfillmentModalElement extends UmbModalBaseElement<
     `;
   }
 
+  private _renderLineItem(
+    orderId: string,
+    item: FulfillmentLineItemDto,
+    orderSelections: Map<string, SelectedItem>
+  ): unknown {
+    const isSelected = orderSelections.has(item.id);
+    const selectedItem = orderSelections.get(item.id);
+
+    return html`
+      <div class="item-row ${isSelected ? "selected" : ""}">
+        <input
+          type="checkbox"
+          .checked=${isSelected}
+          @change=${() => this._toggleItemSelection(orderId, item)}
+        />
+        <div class="item-image">
+          ${item.imageUrl
+            ? html`<img src="${item.imageUrl}" alt="${item.name}" />`
+            : html`<div class="placeholder-image"></div>`}
+        </div>
+        <div class="item-details">
+          <div class="item-name">${item.name || "Unknown item"}</div>
+          <div class="item-sku">${item.sku || "No SKU"}</div>
+        </div>
+        <div class="item-quantity">
+          ${isSelected
+            ? html`
+                <input
+                  type="number"
+                  min="1"
+                  max="${item.remainingQuantity}"
+                  .value=${String(selectedItem?.quantity ?? item.remainingQuantity)}
+                  @input=${(e: Event) =>
+                    this._updateItemQuantity(
+                      orderId,
+                      item.id,
+                      parseInt((e.target as HTMLInputElement).value) || 1
+                    )}
+                  @click=${(e: Event) => e.stopPropagation()}
+                />
+                <span class="qty-label">/ ${item.remainingQuantity}</span>
+              `
+            : html`<span class="qty-available">${item.remainingQuantity} available</span>`}
+        </div>
+      </div>
+    `;
+  }
+
+  private _renderExistingShipmentsSection(): unknown {
+    const existingShipments = this._getAllExistingShipments();
+    if (existingShipments.length === 0) return nothing;
+
+    return html`
+      <div class="existing-shipments-section">
+        <div
+          class="section-header"
+          @click=${() => (this._existingShipmentsExpanded = !this._existingShipmentsExpanded)}
+        >
+          <uui-icon
+            name="${this._existingShipmentsExpanded ? "icon-navigation-down" : "icon-navigation-right"}"
+          ></uui-icon>
+          <span>Existing Shipments (${existingShipments.length})</span>
+        </div>
+
+        ${this._existingShipmentsExpanded
+          ? html`
+              <div class="existing-shipments-list">
+                ${existingShipments.map(
+                  ({ shipment, warehouseName }) => html`
+                    <div class="existing-shipment-card">
+                      <div class="existing-shipment-header">
+                        <span class="carrier">${shipment.carrier || "No carrier"}</span>
+                        ${shipment.trackingNumber
+                          ? html`<span class="tracking">${shipment.trackingNumber}</span>`
+                          : nothing}
+                        <span class="date">${this._formatDate(shipment.dateCreated)}</span>
+                      </div>
+                      <div class="existing-shipment-meta">
+                        <span class="warehouse">${warehouseName}</span>
+                        <span class="item-count">
+                          ${shipment.lineItems.reduce((sum, li) => sum + li.quantity, 0)} items
+                        </span>
+                      </div>
+                      <div class="existing-shipment-actions">
+                        ${shipment.trackingUrl
+                          ? html`
+                              <a href="${shipment.trackingUrl}" target="_blank" class="track-link">
+                                Track
+                              </a>
+                            `
+                          : nothing}
+                        <uui-button
+                          look="secondary"
+                          color="danger"
+                          compact
+                          label="Delete"
+                          @click=${() => this._deleteShipment(shipment.id)}
+                        >
+                          Delete
+                        </uui-button>
+                      </div>
+                    </div>
+                  `
+                )}
+              </div>
+            `
+          : nothing}
+      </div>
+    `;
+  }
+
   render() {
+    const ordersWithRemaining = this._getOrdersWithRemainingItems();
+    const ordersWithSelections = this._getOrdersWithSelections();
+    const totalItemsToShip = this._getTotalItemsToShip();
+    const hasItemsToShip = ordersWithRemaining.length > 0;
+    const hasSelections = ordersWithSelections.length > 0;
+
     return html`
       <umb-body-layout headline="Fulfil Order ${this._summary?.invoiceNumber ?? ""}">
         <div id="main">
@@ -498,21 +575,51 @@ export class MerchelloFulfillmentModalElement extends UmbModalBaseElement<
                 ? html`
                     <div class="status-bar">
                       <span class="status-label">Overall Status:</span>
-                      <span
-                        class="status-badge ${this._summary.overallStatus.toLowerCase()}"
-                      >
+                      <span class="status-badge ${this._summary.overallStatus.toLowerCase()}">
                         ${this._summary.overallStatus}
                       </span>
                     </div>
 
-                    <div class="orders-list">
-                      ${this._summary.orders.map((order) => this._renderOrderCard(order))}
-                    </div>
+                    ${hasItemsToShip
+                      ? html`
+                          <div class="shipments-to-create">
+                            <h3>Shipments to Create</h3>
+                            <p class="description">
+                              Select the items to include in each shipment. Items are pre-selected by default.
+                            </p>
+                            <div class="shipment-cards">
+                              ${ordersWithRemaining.map((order) => this._renderShipmentCard(order))}
+                            </div>
+                          </div>
+                        `
+                      : html`
+                          <div class="all-fulfilled">
+                            <uui-icon name="icon-check"></uui-icon>
+                            <h3>All items fulfilled</h3>
+                            <p>All items in this order have been shipped.</p>
+                          </div>
+                        `}
+
+                    ${this._renderExistingShipmentsSection()}
                   `
                 : html`<div class="empty-message">No order data available</div>`}
         </div>
 
         <div slot="actions">
+          ${hasSelections
+            ? html`
+                <uui-button
+                  look="primary"
+                  label="Create Shipments"
+                  ?disabled=${this._creating}
+                  @click=${this._createAllShipments}
+                >
+                  ${this._creating
+                    ? "Creating..."
+                    : `Create ${ordersWithSelections.length} Shipment${ordersWithSelections.length !== 1 ? "s" : ""} (${totalItemsToShip} items)`}
+                </uui-button>
+              `
+            : nothing}
           <uui-button look="secondary" label="Close" @click=${this._handleClose}>
             Close
           </uui-button>
@@ -545,6 +652,7 @@ export class MerchelloFulfillmentModalElement extends UmbModalBaseElement<
       background: #f8d7da;
       color: #721c24;
       border-radius: var(--uui-border-radius);
+      margin-bottom: var(--uui-size-space-4);
     }
 
     .status-bar {
@@ -579,36 +687,41 @@ export class MerchelloFulfillmentModalElement extends UmbModalBaseElement<
       color: #004085;
     }
 
-    .status-badge.fulfilled,
-    .status-badge.shipped {
+    .status-badge.fulfilled {
       background: #d4edda;
       color: #155724;
     }
 
-    .status-badge.ready {
-      background: #d1ecf1;
-      color: #0c5460;
+    .shipments-to-create h3 {
+      margin: 0 0 var(--uui-size-space-2);
+      font-size: 1rem;
+      font-weight: 600;
     }
 
-    .status-badge.pending {
-      background: #f8f9fa;
-      color: #6c757d;
+    .shipments-to-create .description {
+      margin: 0 0 var(--uui-size-space-4);
+      color: var(--uui-color-text-alt);
+      font-size: 0.875rem;
     }
 
-    .orders-list {
+    .shipment-cards {
       display: flex;
       flex-direction: column;
-      gap: var(--uui-size-space-4);
+      gap: var(--uui-size-space-3);
     }
 
-    .order-card {
+    .shipment-card {
       background: var(--uui-color-surface);
       border: 1px solid var(--uui-color-border);
       border-radius: var(--uui-border-radius);
       overflow: hidden;
     }
 
-    .order-header {
+    .shipment-card.has-selection {
+      border-color: var(--uui-color-positive);
+    }
+
+    .shipment-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -617,11 +730,11 @@ export class MerchelloFulfillmentModalElement extends UmbModalBaseElement<
       cursor: pointer;
     }
 
-    .order-header:hover {
+    .shipment-header:hover {
       background: var(--uui-color-surface-emphasis);
     }
 
-    .order-info {
+    .header-info {
       display: flex;
       align-items: center;
       gap: var(--uui-size-space-2);
@@ -631,26 +744,47 @@ export class MerchelloFulfillmentModalElement extends UmbModalBaseElement<
       font-weight: 600;
     }
 
-    .order-summary {
+    .item-count {
+      color: var(--uui-color-text-alt);
+      font-size: 0.875rem;
+    }
+
+    .header-meta {
       display: flex;
       align-items: center;
       gap: var(--uui-size-space-2);
+    }
+
+    .delivery-method {
+      font-size: 0.875rem;
       color: var(--uui-color-text-alt);
     }
 
-    .order-content {
+    .shipment-content {
       padding: var(--uui-size-space-4);
     }
 
-    .section-header {
+    .items-section {
+      margin-bottom: var(--uui-size-space-4);
+    }
+
+    .items-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: var(--uui-size-space-3);
-      font-weight: 500;
+      margin-bottom: var(--uui-size-space-2);
     }
 
-    .section-actions {
+    .items-header h4,
+    .tracking-section h4 {
+      margin: 0;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--uui-color-text-alt);
+    }
+
+    .selection-actions {
       display: flex;
       gap: var(--uui-size-space-2);
     }
@@ -659,13 +793,16 @@ export class MerchelloFulfillmentModalElement extends UmbModalBaseElement<
       display: flex;
       flex-direction: column;
       gap: var(--uui-size-space-2);
+      background: var(--uui-color-surface-alt);
+      border-radius: var(--uui-border-radius);
+      padding: var(--uui-size-space-2);
     }
 
     .item-row {
       display: grid;
-      grid-template-columns: auto 50px 1fr auto;
-      gap: var(--uui-size-space-3);
+      grid-template-columns: auto 40px 1fr auto;
       align-items: center;
+      gap: var(--uui-size-space-3);
       padding: var(--uui-size-space-2);
       border-radius: var(--uui-border-radius);
     }
@@ -674,20 +811,35 @@ export class MerchelloFulfillmentModalElement extends UmbModalBaseElement<
       background: var(--uui-color-selected);
     }
 
+    .item-row input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+
     .item-image img,
     .placeholder-image {
-      width: 50px;
-      height: 50px;
+      width: 40px;
+      height: 40px;
       border-radius: var(--uui-border-radius);
       object-fit: cover;
     }
 
     .placeholder-image {
-      background: var(--uui-color-surface-alt);
+      background: var(--uui-color-surface);
+    }
+
+    .item-details {
+      flex: 1;
+      min-width: 0;
     }
 
     .item-name {
       font-weight: 500;
+      font-size: 0.875rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .item-sku {
@@ -701,7 +853,7 @@ export class MerchelloFulfillmentModalElement extends UmbModalBaseElement<
       gap: var(--uui-size-space-2);
     }
 
-    .item-quantity input {
+    .item-quantity input[type="number"] {
       width: 60px;
       padding: var(--uui-size-space-1);
       border: 1px solid var(--uui-color-border);
@@ -710,101 +862,28 @@ export class MerchelloFulfillmentModalElement extends UmbModalBaseElement<
     }
 
     .qty-label {
-      font-size: 0.875rem;
-      color: var(--uui-color-text-alt);
-    }
-
-    .empty-message {
-      padding: var(--uui-size-space-4);
-      text-align: center;
-      color: var(--uui-color-text-alt);
-      font-style: italic;
-    }
-
-    .shipments-section {
-      margin-top: var(--uui-size-space-4);
-      padding-top: var(--uui-size-space-4);
-      border-top: 1px solid var(--uui-color-border);
-    }
-
-    .shipments-list {
-      display: flex;
-      flex-direction: column;
-      gap: var(--uui-size-space-2);
-    }
-
-    .shipment-card {
-      padding: var(--uui-size-space-3);
-      background: var(--uui-color-surface-alt);
-      border-radius: var(--uui-border-radius);
-    }
-
-    .shipment-header {
-      display: flex;
-      align-items: center;
-      gap: var(--uui-size-space-2);
-      margin-bottom: var(--uui-size-space-2);
-    }
-
-    .shipment-carrier {
-      font-weight: 500;
-    }
-
-    .tracking-number {
-      font-family: monospace;
-      font-size: 0.875rem;
-      background: var(--uui-color-surface);
-      padding: 2px 6px;
-      border-radius: var(--uui-border-radius);
-    }
-
-    .shipment-date {
-      margin-left: auto;
       font-size: 0.75rem;
       color: var(--uui-color-text-alt);
     }
 
-    .shipment-items {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--uui-size-space-2);
-      margin-bottom: var(--uui-size-space-2);
-    }
-
-    .shipment-item {
+    .qty-available {
       font-size: 0.875rem;
-      background: var(--uui-color-surface);
-      padding: 2px 8px;
-      border-radius: var(--uui-border-radius);
+      color: var(--uui-color-text-alt);
     }
 
-    .shipment-actions {
-      display: flex;
-      gap: var(--uui-size-space-2);
-    }
-
-    .track-link {
-      font-size: 0.875rem;
-      color: var(--uui-color-interactive);
-    }
-
-    .create-shipment-section {
-      margin-top: var(--uui-size-space-4);
+    .tracking-section {
       padding-top: var(--uui-size-space-4);
       border-top: 1px solid var(--uui-color-border);
     }
 
-    .tracking-toggle {
-      display: flex;
-      align-items: center;
-      gap: var(--uui-size-space-2);
-      cursor: pointer;
-      margin-bottom: var(--uui-size-space-3);
-      color: var(--uui-color-interactive);
+    .tracking-section h4 {
+      margin-bottom: var(--uui-size-space-2);
     }
 
     .tracking-form {
-      margin-bottom: var(--uui-size-space-4);
+      background: var(--uui-color-surface-alt);
+      border-radius: var(--uui-border-radius);
+      padding: var(--uui-size-space-3);
     }
 
     .form-row {
@@ -813,12 +892,17 @@ export class MerchelloFulfillmentModalElement extends UmbModalBaseElement<
       margin-bottom: var(--uui-size-space-3);
     }
 
+    .form-row:last-child {
+      margin-bottom: 0;
+    }
+
     .form-row label {
       flex: 1;
       display: flex;
       flex-direction: column;
       gap: var(--uui-size-space-1);
       font-size: 0.875rem;
+      font-weight: 500;
     }
 
     .form-row label.full-width {
@@ -829,16 +913,124 @@ export class MerchelloFulfillmentModalElement extends UmbModalBaseElement<
       padding: var(--uui-size-space-2);
       border: 1px solid var(--uui-color-border);
       border-radius: var(--uui-border-radius);
+      font-size: 0.875rem;
     }
 
-    .create-action {
+    .form-row input:focus {
+      outline: none;
+      border-color: var(--uui-color-interactive);
+    }
+
+    .all-fulfilled {
       display: flex;
-      justify-content: space-between;
+      flex-direction: column;
       align-items: center;
+      justify-content: center;
+      padding: var(--uui-size-layout-4);
+      text-align: center;
+      background: var(--uui-color-surface);
+      border-radius: var(--uui-border-radius);
     }
 
-    .selected-summary {
+    .all-fulfilled uui-icon {
+      font-size: 48px;
+      color: #155724;
+      margin-bottom: var(--uui-size-space-4);
+    }
+
+    .all-fulfilled h3 {
+      margin: 0 0 var(--uui-size-space-2);
+      font-size: 1.25rem;
+      color: #155724;
+    }
+
+    .all-fulfilled p {
+      margin: 0;
       color: var(--uui-color-text-alt);
+    }
+
+    .existing-shipments-section {
+      margin-top: var(--uui-size-space-4);
+      border-top: 1px solid var(--uui-color-border);
+      padding-top: var(--uui-size-space-4);
+    }
+
+    .existing-shipments-section .section-header {
+      display: flex;
+      align-items: center;
+      gap: var(--uui-size-space-2);
+      cursor: pointer;
+      font-weight: 500;
+      padding: var(--uui-size-space-2);
+      border-radius: var(--uui-border-radius);
+    }
+
+    .existing-shipments-section .section-header:hover {
+      background: var(--uui-color-surface-alt);
+    }
+
+    .existing-shipments-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--uui-size-space-2);
+      margin-top: var(--uui-size-space-3);
+    }
+
+    .existing-shipment-card {
+      padding: var(--uui-size-space-3);
+      background: var(--uui-color-surface);
+      border: 1px solid var(--uui-color-border);
+      border-radius: var(--uui-border-radius);
+    }
+
+    .existing-shipment-header {
+      display: flex;
+      align-items: center;
+      gap: var(--uui-size-space-2);
+      margin-bottom: var(--uui-size-space-2);
+    }
+
+    .existing-shipment-header .carrier {
+      font-weight: 600;
+    }
+
+    .existing-shipment-header .tracking {
+      font-family: monospace;
+      font-size: 0.875rem;
+      background: var(--uui-color-surface-alt);
+      padding: 2px 6px;
+      border-radius: var(--uui-border-radius);
+    }
+
+    .existing-shipment-header .date {
+      margin-left: auto;
+      font-size: 0.75rem;
+      color: var(--uui-color-text-alt);
+    }
+
+    .existing-shipment-meta {
+      display: flex;
+      gap: var(--uui-size-space-3);
+      font-size: 0.875rem;
+      color: var(--uui-color-text-alt);
+      margin-bottom: var(--uui-size-space-2);
+    }
+
+    .existing-shipment-actions {
+      display: flex;
+      gap: var(--uui-size-space-2);
+    }
+
+    .track-link {
+      font-size: 0.875rem;
+      color: var(--uui-color-interactive);
+    }
+
+    .empty-message {
+      padding: var(--uui-size-space-4);
+      text-align: center;
+      color: var(--uui-color-text-alt);
+      font-style: italic;
     }
   `;
 }

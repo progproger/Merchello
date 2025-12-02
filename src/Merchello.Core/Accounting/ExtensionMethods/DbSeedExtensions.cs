@@ -1,7 +1,10 @@
 using Merchello.Core.Accounting.Models;
 using Merchello.Core.Data;
 using Merchello.Core.Locality.Models;
+using Merchello.Core.Products.Models;
 using Merchello.Core.Shared.Extensions;
+using Merchello.Core.Shipping.Models;
+using Merchello.Core.Warehouses.Models;
 
 namespace Merchello.Core.Accounting.ExtensionMethods;
 
@@ -41,19 +44,21 @@ public static class InvoiceSeedExtensions
         Address billingAddress,
         Address shippingAddress,
         string channel,
-        List<(string sku, string name, int qty, decimal price, decimal taxRate)> lineItems,
-        decimal shippingCost,
+        List<(string? sku, string? name, int qty, decimal price, decimal taxRate, Guid? productId)> lineItems,
+        Warehouse warehouse,
+        ShippingOption shippingOption,
         bool isPaid,
         OrderStatus orderStatus,
         List<InvoiceNote>? notes = null,
         DateTime? dateCreated = null)
     {
         var created = dateCreated ?? DateTime.UtcNow;
+        var shippingCost = shippingOption.FixedCost ?? 0m;
 
         // Calculate totals
-        decimal subTotal = lineItems.Sum(li => li.qty * li.price);
-        decimal tax = lineItems.Sum(li => li.qty * li.price * (li.taxRate / 100m));
-        decimal total = subTotal + tax + shippingCost;
+        var subTotal = lineItems.Sum(li => li.qty * li.price);
+        var tax = lineItems.Sum(li => li.qty * li.price * (li.taxRate / 100m));
+        var total = subTotal + tax + shippingCost;
 
         var invoice = new Invoice
         {
@@ -68,10 +73,7 @@ public static class InvoiceSeedExtensions
             AdjustedSubTotal = subTotal,
             DateCreated = created,
             DateUpdated = created,
-            Notes = notes ?? new List<InvoiceNote>
-            {
-                new() { DateCreated = created, Description = "Order created", Author = "System", VisibleToCustomer = false }
-            }
+            Notes = notes ?? [new InvoiceNote { DateCreated = created, Description = "Order created", Author = "System", VisibleToCustomer = false }]
         };
 
         // Create Order
@@ -80,13 +82,13 @@ public static class InvoiceSeedExtensions
             Id = GuidExtensions.NewSequentialGuid,
             InvoiceId = invoice.Id,
             Invoice = invoice,
-            WarehouseId = Guid.Empty, // No real warehouse for seed data
-            ShippingOptionId = Guid.Empty,
+            WarehouseId = warehouse.Id,
+            ShippingOptionId = shippingOption.Id,
             ShippingCost = shippingCost,
             Status = orderStatus,
             DateCreated = created,
             DateUpdated = created,
-            LineItems = new List<LineItem>()
+            LineItems = []
         };
 
         // Set status-related dates
@@ -112,13 +114,14 @@ public static class InvoiceSeedExtensions
         }
 
         // Create line items
-        foreach (var (sku, name, qty, price, taxRate) in lineItems)
+        foreach (var (sku, name, qty, price, taxRate, productId) in lineItems)
         {
             var lineItem = new LineItem
             {
                 Id = GuidExtensions.NewSequentialGuid,
                 OrderId = order.Id,
                 Order = order,
+                ProductId = productId,
                 Sku = sku,
                 Name = name,
                 Quantity = qty,
@@ -142,7 +145,7 @@ public static class InvoiceSeedExtensions
                 OrderId = order.Id,
                 Order = order,
                 Sku = "SHIPPING",
-                Name = "Standard Shipping",
+                Name = shippingOption.Name,
                 Quantity = 1,
                 Amount = shippingCost,
                 IsTaxable = false,
@@ -155,7 +158,7 @@ public static class InvoiceSeedExtensions
             context.LineItems.Add(shippingLineItem);
         }
 
-        invoice.Orders = new List<Order> { order };
+        invoice.Orders = [order];
 
         // Create payment if paid
         if (isPaid)
@@ -172,7 +175,7 @@ public static class InvoiceSeedExtensions
                 Description = "Payment received",
                 DateCreated = created.AddMinutes(5)
             };
-            invoice.Payments = new List<Payment> { payment };
+            invoice.Payments = [payment];
             context.Payments.Add(payment);
 
             // Add payment note
@@ -227,89 +230,101 @@ public static class InvoiceSeedExtensions
     }
 
     /// <summary>
-    /// Seeds sample invoice data for development/testing
+    /// Seeds sample invoice data for development/testing using real products and warehouses.
     /// </summary>
-    public static void SeedSampleInvoices(this MerchelloDbContext context, string invoicePrefix = "INV-")
+    /// <param name="context">The database context</param>
+    /// <param name="invoicePrefix">Invoice number prefix</param>
+    /// <param name="products">Real products from the database</param>
+    /// <param name="warehouses">Real warehouses with their shipping options</param>
+    /// <param name="taxRate">Tax rate to apply (default 20% UK VAT)</param>
+    /// <param name="count">Number of invoices to create (default 100)</param>
+    public static void SeedSampleInvoices(
+        this MerchelloDbContext context,
+        string invoicePrefix,
+        List<Product> products,
+        List<Warehouse> warehouses,
+        decimal taxRate = 20m,
+        int count = 100)
     {
         var customers = GetSampleCustomers();
-        var products = GetSampleProducts();
-        var invoiceNumber = 1;
+        var channels = new[] { "Online Store", "Online Store", "Online Store", "Shop", "POS", "Draft order" };
 
-        // Create varied orders across different statuses and dates
-        var scenarios = new List<(OrderStatus status, bool isPaid, int daysAgo, string channel)>
+        for (var i = 1; i <= count; i++)
         {
-            // Today's orders
-            (OrderStatus.Pending, false, 0, "Online Store"),
-            (OrderStatus.Pending, true, 0, "Online Store"),
-            (OrderStatus.ReadyToFulfill, true, 0, "Online Store"),
+            // Pick status based on weighted distribution
+            var (status, isPaid, minDays, maxDays) = PickWeightedStatus(i, count);
 
-            // Yesterday's orders
-            (OrderStatus.Processing, true, 1, "Online Store"),
-            (OrderStatus.Processing, true, 1, "Shop"),
-            (OrderStatus.ReadyToFulfill, true, 1, "Online Store"),
-            (OrderStatus.Pending, false, 1, "Draft order"),
-
-            // This week
-            (OrderStatus.Shipped, true, 2, "Online Store"),
-            (OrderStatus.Shipped, true, 3, "Online Store"),
-            (OrderStatus.PartiallyShipped, true, 3, "Online Store"),
-            (OrderStatus.Completed, true, 4, "Online Store"),
-            (OrderStatus.Completed, true, 5, "Shop"),
-            (OrderStatus.Cancelled, false, 4, "Online Store"),
-
-            // Last week
-            (OrderStatus.Completed, true, 7, "Online Store"),
-            (OrderStatus.Completed, true, 8, "Online Store"),
-            (OrderStatus.Completed, true, 9, "POS"),
-            (OrderStatus.Completed, true, 10, "Online Store"),
-            (OrderStatus.OnHold, true, 8, "Online Store"),
-            (OrderStatus.AwaitingStock, true, 9, "Online Store"),
-
-            // Last month
-            (OrderStatus.Completed, true, 14, "Online Store"),
-            (OrderStatus.Completed, true, 18, "Online Store"),
-            (OrderStatus.Completed, true, 21, "Shop"),
-            (OrderStatus.Completed, true, 25, "Online Store"),
-            (OrderStatus.Completed, true, 28, "Online Store"),
-        };
-
-        foreach (var (status, isPaid, daysAgo, channel) in scenarios)
-        {
+            // Pick random customer and channel
             var customer = customers[Random.Next(customers.Count)];
-            var numItems = Random.Next(1, 4);
+            var channel = channels[Random.Next(channels.Length)];
+
+            // Pick random warehouse and one of its shipping options
+            var warehouse = warehouses[Random.Next(warehouses.Count)];
+            var shippingOptions = warehouse.ShippingOptions.ToList();
+            var shippingOption = shippingOptions.Count > 0
+                ? shippingOptions[Random.Next(shippingOptions.Count)]
+                : throw new InvalidOperationException($"Warehouse {warehouse.Name} has no shipping options");
+
+            // Pick 1-5 random products for line items
+            var numItems = Random.Next(1, 6);
             var selectedProducts = products.OrderBy(_ => Random.Next()).Take(numItems).ToList();
 
             var lineItems = selectedProducts.Select(p => (
-                sku: p.sku,
-                name: p.name,
-                qty: Random.Next(1, 3),
-                price: p.price,
-                taxRate: 20m // UK VAT
+                sku: p.Sku,
+                name: p.Name,
+                qty: Random.Next(1, 4),
+                price: p.Price,
+                taxRate: taxRate,
+                productId: (Guid?)p.Id
             )).ToList();
 
-            var shippingCost = Random.Next(0, 2) == 0 ? 0m : Random.Next(5, 15);
-            var dateCreated = DateTime.UtcNow.AddDays(-daysAgo).AddHours(-Random.Next(0, 12));
+            // Create date within the range for this status
+            var daysAgo = Random.Next(minDays, maxDays + 1);
+            var dateCreated = DateTime.UtcNow.AddDays(-daysAgo).AddHours(-Random.Next(0, 24));
 
             context.CreateInvoiceWithOrders(
-                invoiceNumber: $"{invoicePrefix}{invoiceNumber:D4}",
+                invoiceNumber: $"{invoicePrefix}{i:D4}",
                 billingAddress: customer.billing,
                 shippingAddress: customer.shipping ?? customer.billing,
                 channel: channel,
                 lineItems: lineItems,
-                shippingCost: shippingCost,
+                warehouse: warehouse,
+                shippingOption: shippingOption,
                 isPaid: isPaid,
                 orderStatus: status,
                 dateCreated: dateCreated
             );
-
-            invoiceNumber++;
         }
+    }
+
+    /// <summary>
+    /// Picks a weighted status based on position in the count to ensure good distribution.
+    /// </summary>
+    private static (OrderStatus status, bool isPaid, int minDays, int maxDays) PickWeightedStatus(int index, int total)
+    {
+        // Distribution: 8% Pending, 10% ReadyToFulfill, 12% Processing, 15% Shipped,
+        //               5% PartiallyShipped, 40% Completed, 4% OnHold, 3% AwaitingStock, 3% Cancelled
+        var percent = index * 100 / total;
+
+        return percent switch
+        {
+            < 4 => (OrderStatus.Pending, false, 0, 2),        // 4% unpaid pending
+            < 8 => (OrderStatus.Pending, true, 0, 2),         // 4% paid pending
+            < 18 => (OrderStatus.ReadyToFulfill, true, 0, 3), // 10% ready to fulfill
+            < 30 => (OrderStatus.Processing, true, 1, 5),     // 12% processing
+            < 45 => (OrderStatus.Shipped, true, 3, 14),       // 15% shipped
+            < 50 => (OrderStatus.PartiallyShipped, true, 5, 10), // 5% partially shipped
+            < 90 => (OrderStatus.Completed, true, 7, 60),     // 40% completed
+            < 94 => (OrderStatus.OnHold, true, 5, 15),        // 4% on hold
+            < 97 => (OrderStatus.AwaitingStock, true, 3, 10), // 3% awaiting stock
+            _ => (OrderStatus.Cancelled, false, 2, 20)        // 3% cancelled
+        };
     }
 
     private static List<(Address billing, Address? shipping)> GetSampleCustomers()
     {
-        return new List<(Address billing, Address? shipping)>
-        {
+        return
+        [
             // UK Customers
             (new Address
             {
@@ -458,34 +473,7 @@ public static class InvoiceSeedExtensions
                 PostalCode = "B2 4QA",
                 Country = "United Kingdom",
                 CountryCode = "GB"
-            }, null),
-        };
-    }
-
-    private static List<(string sku, string name, decimal price)> GetSampleProducts()
-    {
-        return new List<(string sku, string name, decimal price)>
-        {
-            ("TSH-BLK-M", "Classic T-Shirt - Black - Medium", 24.99m),
-            ("TSH-WHT-L", "Classic T-Shirt - White - Large", 24.99m),
-            ("TSH-NVY-S", "Classic T-Shirt - Navy - Small", 24.99m),
-            ("TSH-GRY-XL", "Classic T-Shirt - Grey - XL", 24.99m),
-            ("HOD-BLK-M", "Premium Hoodie - Black - Medium", 59.99m),
-            ("HOD-NVY-L", "Premium Hoodie - Navy - Large", 59.99m),
-            ("HOD-GRY-S", "Premium Hoodie - Grey - Small", 59.99m),
-            ("CAP-BLK", "Snapback Cap - Black", 19.99m),
-            ("CAP-NVY", "Snapback Cap - Navy", 19.99m),
-            ("CAP-WHT", "Snapback Cap - White", 19.99m),
-            ("BAG-TOT-BLK", "Canvas Tote Bag - Black", 14.99m),
-            ("BAG-TOT-NAT", "Canvas Tote Bag - Natural", 14.99m),
-            ("MUG-WHT", "Ceramic Mug - White", 12.99m),
-            ("MUG-BLK", "Ceramic Mug - Black", 12.99m),
-            ("STK-PACK", "Sticker Pack (10 pcs)", 9.99m),
-            ("GFT-25", "Gift Card - £25", 25.00m),
-            ("GFT-50", "Gift Card - £50", 50.00m),
-            ("POL-BLU-M", "Polo Shirt - Blue - Medium", 34.99m),
-            ("POL-WHT-L", "Polo Shirt - White - Large", 34.99m),
-            ("JKT-BLK-M", "Bomber Jacket - Black - Medium", 89.99m),
-        };
+            }, null)
+        ];
     }
 }

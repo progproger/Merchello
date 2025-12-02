@@ -1,12 +1,12 @@
-import { LitElement as h, html as l, css as g, state as c, customElement as m } from "@umbraco-cms/backoffice/external/lit";
-import { UmbElementMixin as b } from "@umbraco-cms/backoffice/element-api";
+import { LitElement as h, html as l, css as g, state as c, customElement as b } from "@umbraco-cms/backoffice/external/lit";
+import { UmbElementMixin as m } from "@umbraco-cms/backoffice/element-api";
 import { M as d } from "./merchello-api-Il9xQut5.js";
-var v = Object.defineProperty, _ = Object.getOwnPropertyDescriptor, u = (t, e, r, i) => {
-  for (var a = i > 1 ? void 0 : i ? _(e, r) : e, o = t.length - 1, n; o >= 0; o--)
-    (n = t[o]) && (a = (i ? n(e, r, a) : n(a)) || a);
-  return i && a && v(e, r, a), a;
+var v = Object.defineProperty, f = Object.getOwnPropertyDescriptor, r = (t, e, u, i) => {
+  for (var a = i > 1 ? void 0 : i ? f(e, u) : e, o = t.length - 1, n; o >= 0; o--)
+    (n = t[o]) && (a = (i ? n(e, u, a) : n(a)) || a);
+  return i && a && v(e, u, a), a;
 };
-let s = class extends b(h) {
+let s = class extends m(h) {
   constructor() {
     super(...arguments), this._stats = null, this._recentOrders = [], this._loading = !0;
   }
@@ -42,20 +42,6 @@ let s = class extends b(h) {
   }
   _getOrderHref(t) {
     return `section/merchello/workspace/merchello-order/edit/${t}`;
-  }
-  _getStatusBadgeColor(t) {
-    switch (t.toLowerCase()) {
-      case "fulfilled":
-        return "positive";
-      case "partial":
-        return "warning";
-      case "unfulfilled":
-      default:
-        return "default";
-    }
-  }
-  _getPaymentBadgeColor(t) {
-    return t.toLowerCase() === "paid" ? "positive" : "warning";
   }
   render() {
     return this._loading ? l`
@@ -117,14 +103,10 @@ let s = class extends b(h) {
                       <uui-table-cell>${t.customerName}</uui-table-cell>
                       <uui-table-cell>${this._formatDate(t.dateCreated)}</uui-table-cell>
                       <uui-table-cell>
-                        <uui-badge color=${this._getPaymentBadgeColor(t.paymentStatus)}>
-                          ${t.paymentStatus}
-                        </uui-badge>
+                        <span class="badge ${t.paymentStatus.toLowerCase()}">${t.paymentStatus}</span>
                       </uui-table-cell>
                       <uui-table-cell>
-                        <uui-badge color=${this._getStatusBadgeColor(t.fulfillmentStatus)}>
-                          ${t.fulfillmentStatus}
-                        </uui-badge>
+                        <span class="badge ${t.fulfillmentStatus.toLowerCase().replace(" ", "-")}">${t.fulfillmentStatus}</span>
                       </uui-table-cell>
                       <uui-table-cell>${this._formatCurrency(t.total)}</uui-table-cell>
                     </uui-table-row>
@@ -194,9 +176,37 @@ s.styles = [
         width: 100%;
       }
 
-      uui-badge {
-        vertical-align: middle;
-        --uui-badge-inset: 0;
+      .badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 500;
+      }
+
+      .badge.paid {
+        background: #d4edda;
+        color: #155724;
+      }
+
+      .badge.unpaid {
+        background: #fff3cd;
+        color: #856404;
+      }
+
+      .badge.fulfilled {
+        background: #d4edda;
+        color: #155724;
+      }
+
+      .badge.unfulfilled {
+        background: #1b264f;
+        color: #ffffff;
+      }
+
+      .badge.partial {
+        background: #cce5ff;
+        color: #004085;
       }
 
       uui-table-cell a {
@@ -215,21 +225,21 @@ s.styles = [
       }
     `
 ];
-u([
+r([
   c()
 ], s.prototype, "_stats", 2);
-u([
+r([
   c()
 ], s.prototype, "_recentOrders", 2);
-u([
+r([
   c()
 ], s.prototype, "_loading", 2);
-s = u([
-  m("merchello-stats-dashboard")
+s = r([
+  b("merchello-stats-dashboard")
 ], s);
 const y = s;
 export {
   s as MerchelloStatsDashboardElement,
   y as default
 };
-//# sourceMappingURL=stats-dashboard.element-DX_QdfF9.js.map
+//# sourceMappingURL=stats-dashboard.element-Ct5MHEUo.js.map

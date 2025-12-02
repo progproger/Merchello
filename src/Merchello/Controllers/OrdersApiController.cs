@@ -491,7 +491,7 @@ public class OrdersApiController : MerchelloApiControllerBase
 
             if (order == null)
             {
-                return (null, "Order not found");
+                return ((Shipment?)null, "Order not found");
             }
 
             // Validate quantities
@@ -500,7 +500,7 @@ public class OrdersApiController : MerchelloApiControllerBase
                 var lineItem = order.LineItems?.FirstOrDefault(li => li.Id == lineItemId);
                 if (lineItem == null)
                 {
-                    return (null, $"Line item {lineItemId} not found in order");
+                    return ((Shipment?)null, $"Line item {lineItemId} not found in order");
                 }
 
                 var alreadyShipped = order.Shipments?
@@ -511,7 +511,7 @@ public class OrdersApiController : MerchelloApiControllerBase
                 var remaining = lineItem.Quantity - alreadyShipped;
                 if (quantity > remaining)
                 {
-                    return (null, $"Cannot ship {quantity} of {lineItem.Name}. Only {remaining} remaining");
+                    return ((Shipment?)null, $"Cannot ship {quantity} of {lineItem.Name}. Only {remaining} remaining");
                 }
             }
 

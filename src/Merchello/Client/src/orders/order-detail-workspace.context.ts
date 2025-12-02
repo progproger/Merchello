@@ -19,7 +19,7 @@ export class MerchelloOrderDetailWorkspaceContext extends UmbControllerBase impl
     this.routes = new UmbWorkspaceRouteManager(host);
     this.provideContext(UMB_WORKSPACE_CONTEXT, this);
 
-    // Set up routes for this workspace
+    // Set up routes - load the order detail element directly
     this.routes.setRoutes([
       {
         path: "edit/:id",

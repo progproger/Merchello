@@ -5,7 +5,7 @@ const e = [
     type: "backofficeEntryPoint",
     js: () => import("./entrypoint-CVulIESN.js")
   }
-], a = [
+], l = [
   {
     name: "Merchello Dashboard",
     alias: "Merchello.Dashboard",
@@ -22,7 +22,7 @@ const e = [
       }
     ]
   }
-], l = [
+], a = [
   // Section
   {
     type: "section",
@@ -68,7 +68,7 @@ const e = [
     type: "dashboard",
     alias: "Merchello.Dashboard.Stats",
     name: "Merchello Stats Dashboard",
-    element: () => import("./stats-dashboard.element-DX_QdfF9.js"),
+    element: () => import("./stats-dashboard.element-Ct5MHEUo.js"),
     meta: {
       label: "Stats",
       pathname: "stats"
@@ -167,7 +167,7 @@ const e = [
     type: "modal",
     alias: "Merchello.Fulfillment.Modal",
     name: "Merchello Fulfillment Modal",
-    js: () => import("./fulfillment-modal.element-CtQE6G9i.js")
+    js: () => import("./fulfillment-modal.element-DucCQJoE.js")
   },
   // Shipment edit modal for updating tracking info
   {
@@ -212,53 +212,15 @@ const e = [
     kind: "routable",
     alias: "Merchello.Order.Detail.Workspace",
     name: "Order Detail Workspace",
-    api: () => import("./order-detail-workspace.context-BY3ms8B0.js"),
+    api: () => import("./order-detail-workspace.context-Dxol5ue8.js"),
     meta: {
       entityType: "merchello-order"
     }
-  },
-  // Order detail view
-  {
-    type: "workspaceView",
-    alias: "Merchello.Order.DetailView",
-    name: "Order Detail View",
-    js: () => import("./order-detail.element-Bm8bc41S.js"),
-    weight: 100,
-    meta: {
-      label: "Details",
-      pathname: "details",
-      icon: "icon-document"
-    },
-    conditions: [
-      {
-        alias: "Umb.Condition.WorkspaceAlias",
-        match: "Merchello.Order.Detail.Workspace"
-      }
-    ]
-  },
-  // Shipments tab for viewing and managing shipments
-  {
-    type: "workspaceView",
-    alias: "Merchello.Order.ShipmentsView",
-    name: "Order Shipments View",
-    js: () => import("./shipments-view.element-BTPi2SFV.js"),
-    weight: 90,
-    meta: {
-      label: "Shipments",
-      pathname: "shipments",
-      icon: "icon-truck"
-    },
-    conditions: [
-      {
-        alias: "Umb.Condition.WorkspaceAlias",
-        match: "Merchello.Order.Detail.Workspace"
-      }
-    ]
   }
 ], r = [
   ...e,
-  ...a,
   ...l,
+  ...a,
   ...t,
   ...o,
   ...i

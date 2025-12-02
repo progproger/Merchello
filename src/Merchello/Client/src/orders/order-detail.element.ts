@@ -8,10 +8,14 @@ import type { OrderDetailDto, AddressDto, FulfillmentOrderDto } from "./types.js
 import type { MerchelloOrderDetailWorkspaceContext } from "./order-detail-workspace.context.js";
 import { MERCHELLO_FULFILLMENT_MODAL } from "./fulfillment/fulfillment-modal.token.js";
 
+// Import the shipments view component
+import "./shipments/shipments-view.element.js";
+
 @customElement("merchello-order-detail")
 export class MerchelloOrderDetailElement extends UmbElementMixin(LitElement) {
   @state() private _order: OrderDetailDto | null = null;
   @state() private _loading = true;
+  @state() private _activeTab: "details" | "shipments" = "details";
 
   #workspaceContext?: MerchelloOrderDetailWorkspaceContext;
   #modalManager?: UmbModalManagerContext;
@@ -37,11 +41,11 @@ export class MerchelloOrderDetailElement extends UmbElementMixin(LitElement) {
       data: { invoiceId: this._order.id },
     });
 
-    const result = await modal.onSubmit().catch(() => undefined);
-    if (result && result.shipmentsCreated > 0) {
-      // Refresh the order data
-      this.#workspaceContext?.load(this._order.id);
-    }
+    // Wait for modal to close (submit or reject)
+    await modal.onSubmit().catch(() => undefined);
+
+    // Always refresh the order data when modal closes to ensure status is up to date
+    this.#workspaceContext?.load(this._order.id);
   }
 
   private _formatDate(dateString: string): string {
@@ -78,10 +82,13 @@ export class MerchelloOrderDetailElement extends UmbElementMixin(LitElement) {
 
   private _renderFulfillmentCard(fulfillmentOrder: FulfillmentOrderDto): unknown {
     const statusLabel = this._getStatusLabel(fulfillmentOrder.status);
+    const isFulfilled = this._order?.fulfillmentStatus === "Fulfilled";
+    const statusClass = fulfillmentOrder.status >= 50 ? "shipped" : "unfulfilled";
+
     return html`
       <div class="card fulfillment-card">
         <div class="card-header">
-          <span class="status-badge unfulfilled">${statusLabel}</span>
+          <span class="status-badge ${statusClass}">${statusLabel}</span>
           <span class="shipping-method">${fulfillmentOrder.deliveryMethod}</span>
         </div>
         <div class="line-items">
@@ -104,7 +111,14 @@ export class MerchelloOrderDetailElement extends UmbElementMixin(LitElement) {
           )}
         </div>
         <div class="card-footer">
-          <uui-button look="primary" label="Fulfil" @click=${this._openFulfillmentModal}>Fulfil</uui-button>
+          <uui-button
+            look="${isFulfilled ? 'secondary' : 'primary'}"
+            label="${isFulfilled ? 'Fulfilled' : 'Fulfil'}"
+            ?disabled=${isFulfilled}
+            @click=${isFulfilled ? nothing : this._openFulfillmentModal}
+          >
+            ${isFulfilled ? "Fulfilled" : "Fulfil"}
+          </uui-button>
         </div>
       </div>
     `;
@@ -123,6 +137,10 @@ export class MerchelloOrderDetailElement extends UmbElementMixin(LitElement) {
       80: "On Hold",
     };
     return statusMap[status] || "Unknown";
+  }
+
+  private _handleTabClick(tab: "details" | "shipments"): void {
+    this._activeTab = tab;
   }
 
   render() {
@@ -155,6 +173,26 @@ export class MerchelloOrderDetailElement extends UmbElementMixin(LitElement) {
           ${this._formatDate(order.dateCreated)} from ${order.channel}
         </div>
 
+        <!-- Tabs -->
+        <div class="tabs">
+          <button
+            class="tab ${this._activeTab === "details" ? "active" : ""}"
+            @click=${() => this._handleTabClick("details")}
+          >
+            Details
+          </button>
+          <button
+            class="tab ${this._activeTab === "shipments" ? "active" : ""}"
+            @click=${() => this._handleTabClick("shipments")}
+          >
+            Shipments
+          </button>
+        </div>
+
+        <!-- Tab Content -->
+        ${this._activeTab === "shipments"
+          ? html`<merchello-shipments-view></merchello-shipments-view>`
+          : html`
         <!-- Main Content -->
         <div class="order-content">
           <!-- Left Column -->
@@ -297,6 +335,7 @@ export class MerchelloOrderDetailElement extends UmbElementMixin(LitElement) {
             </div>
           </div>
         </div>
+        `}
       </div>
     `;
   }
@@ -349,6 +388,33 @@ export class MerchelloOrderDetailElement extends UmbElementMixin(LitElement) {
       color: var(--uui-color-text-alt);
       font-size: 0.875rem;
       margin-bottom: var(--uui-size-space-4);
+    }
+
+    .tabs {
+      display: flex;
+      gap: var(--uui-size-space-1);
+      border-bottom: 1px solid var(--uui-color-border);
+      margin-bottom: var(--uui-size-space-4);
+    }
+
+    .tab {
+      padding: var(--uui-size-space-2) var(--uui-size-space-4);
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 0.875rem;
+      color: var(--uui-color-text-alt);
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .tab:hover {
+      color: var(--uui-color-text);
+    }
+
+    .tab.active {
+      color: var(--uui-color-text);
+      border-bottom-color: var(--uui-color-current);
     }
 
     .badge {
@@ -436,6 +502,11 @@ export class MerchelloOrderDetailElement extends UmbElementMixin(LitElement) {
       font-weight: 500;
       background: #fff3cd;
       color: #856404;
+    }
+
+    .status-badge.shipped {
+      background: #d4edda;
+      color: #155724;
     }
 
     .shipping-method {

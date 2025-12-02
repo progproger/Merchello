@@ -58,44 +58,4 @@ export const manifests: Array<UmbExtensionManifest> = [
       entityType: "merchello-order",
     },
   },
-
-  // Order detail view
-  {
-    type: "workspaceView",
-    alias: "Merchello.Order.DetailView",
-    name: "Order Detail View",
-    js: () => import("./order-detail.element.js"),
-    weight: 100,
-    meta: {
-      label: "Details",
-      pathname: "details",
-      icon: "icon-document",
-    },
-    conditions: [
-      {
-        alias: "Umb.Condition.WorkspaceAlias",
-        match: "Merchello.Order.Detail.Workspace",
-      },
-    ],
-  },
-
-  // Shipments tab for viewing and managing shipments
-  {
-    type: "workspaceView",
-    alias: "Merchello.Order.ShipmentsView",
-    name: "Order Shipments View",
-    js: () => import("./shipments/shipments-view.element.js"),
-    weight: 90,
-    meta: {
-      label: "Shipments",
-      pathname: "shipments",
-      icon: "icon-truck",
-    },
-    conditions: [
-      {
-        alias: "Umb.Condition.WorkspaceAlias",
-        match: "Merchello.Order.Detail.Workspace",
-      },
-    ],
-  },
 ];
