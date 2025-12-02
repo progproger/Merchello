@@ -8,7 +8,7 @@ public class ProductTypeDbMapping : IEntityTypeConfiguration<ProductType>
 {
     public void Configure(EntityTypeBuilder<ProductType> builder)
     {
-        builder.ToTable("MerchProductTypes");
+        builder.ToTable("merchelloProductTypes");
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).IsRequired();
     }

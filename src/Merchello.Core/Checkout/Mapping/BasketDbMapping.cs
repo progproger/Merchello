@@ -9,7 +9,7 @@ public class BasketDbMapping : IEntityTypeConfiguration<Basket>
 {
     public void Configure(EntityTypeBuilder<Basket> builder)
     {
-        builder.ToTable("MerchBaskets");
+        builder.ToTable("merchelloBaskets");
 
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).IsRequired();

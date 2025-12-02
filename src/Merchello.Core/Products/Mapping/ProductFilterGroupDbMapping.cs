@@ -8,7 +8,7 @@ public class ProductFilterGroupDbMapping : IEntityTypeConfiguration<ProductFilte
 {
     public void Configure(EntityTypeBuilder<ProductFilterGroup> builder)
     {
-        builder.ToTable("MerchProductFilterGroups");
+        builder.ToTable("merchelloProductFilterGroups");
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).IsRequired();
         builder.Property(x => x.Name).HasMaxLength(200).IsRequired();

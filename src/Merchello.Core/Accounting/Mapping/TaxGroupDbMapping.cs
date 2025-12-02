@@ -8,7 +8,7 @@ public class TaxGroupDbMapping : IEntityTypeConfiguration<TaxGroup>
 {
     public void Configure(EntityTypeBuilder<TaxGroup> builder)
     {
-        builder.ToTable("MerchTaxGroups");
+        builder.ToTable("merchelloTaxGroups");
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).IsRequired();
         builder.Property(x => x.Name).HasMaxLength(300);

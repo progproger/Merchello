@@ -356,3 +356,7 @@ MigrationBackup/
 src/.idea
 /.claude/settings.local.json
 /nul
+
+# EF Core design-time build hosts
+**/BuildHost-net472/
+**/BuildHost-netcore/

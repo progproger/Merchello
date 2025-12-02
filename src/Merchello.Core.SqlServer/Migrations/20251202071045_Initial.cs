@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace Merchello.Core.Data.Migrations
+namespace Merchello.Core.SqlServer.Migrations
 {
     /// <inheritdoc />
     public partial class Initial : Migration
@@ -12,7 +12,7 @@ namespace Merchello.Core.Data.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "MerchBaskets",
+                name: "merchelloBaskets",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -35,11 +35,11 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchBaskets", x => x.Id);
+                    table.PrimaryKey("PK_merchelloBaskets", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
-                name: "MerchInvoices",
+                name: "merchelloInvoices",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -55,11 +55,11 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchInvoices", x => x.Id);
+                    table.PrimaryKey("PK_merchelloInvoices", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
-                name: "MerchProductCategories",
+                name: "merchelloProductCategories",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -67,11 +67,11 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchProductCategories", x => x.Id);
+                    table.PrimaryKey("PK_merchelloProductCategories", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
-                name: "MerchProductFilterGroups",
+                name: "merchelloProductFilterGroups",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -80,11 +80,11 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchProductFilterGroups", x => x.Id);
+                    table.PrimaryKey("PK_merchelloProductFilterGroups", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
-                name: "MerchProductTypes",
+                name: "merchelloProductTypes",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -93,11 +93,11 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchProductTypes", x => x.Id);
+                    table.PrimaryKey("PK_merchelloProductTypes", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
-                name: "MerchShippingProviderConfigurations",
+                name: "merchelloShippingProviderConfigurations",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -110,11 +110,11 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchShippingProviderConfigurations", x => x.Id);
+                    table.PrimaryKey("PK_merchelloShippingProviderConfigurations", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
-                name: "MerchTaxGroups",
+                name: "merchelloTaxGroups",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -125,11 +125,11 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchTaxGroups", x => x.Id);
+                    table.PrimaryKey("PK_merchelloTaxGroups", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
-                name: "MerchWarehouses",
+                name: "merchelloWarehouses",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -143,11 +143,11 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchWarehouses", x => x.Id);
+                    table.PrimaryKey("PK_merchelloWarehouses", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
-                name: "MerchOrders",
+                name: "merchelloOrders",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -182,17 +182,17 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchOrders", x => x.Id);
+                    table.PrimaryKey("PK_merchelloOrders", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_MerchOrders_MerchInvoices_InvoiceId",
+                        name: "FK_merchelloOrders_merchelloInvoices_InvoiceId",
                         column: x => x.InvoiceId,
-                        principalTable: "MerchInvoices",
+                        principalTable: "merchelloInvoices",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
-                name: "MerchPayments",
+                name: "merchelloPayments",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -207,17 +207,17 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchPayments", x => x.Id);
+                    table.PrimaryKey("PK_merchelloPayments", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_MerchPayments_MerchInvoices_InvoiceId",
+                        name: "FK_merchelloPayments_merchelloInvoices_InvoiceId",
                         column: x => x.InvoiceId,
-                        principalTable: "MerchInvoices",
+                        principalTable: "merchelloInvoices",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
-                name: "MerchProductFilters",
+                name: "merchelloProductFilters",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -229,17 +229,17 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchProductFilters", x => x.Id);
+                    table.PrimaryKey("PK_merchelloProductFilters", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_MerchProductFilters_MerchProductFilterGroups_ProductFilterGroupId",
+                        name: "FK_merchelloProductFilters_merchelloProductFilterGroups_ProductFilterGroupId",
                         column: x => x.ProductFilterGroupId,
-                        principalTable: "MerchProductFilterGroups",
+                        principalTable: "merchelloProductFilterGroups",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
-                name: "MerchProductRoots",
+                name: "merchelloProductRoots",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -257,23 +257,23 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchProductRoots", x => x.Id);
+                    table.PrimaryKey("PK_merchelloProductRoots", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_MerchProductRoots_MerchProductTypes_ProductTypeId",
+                        name: "FK_merchelloProductRoots_merchelloProductTypes_ProductTypeId",
                         column: x => x.ProductTypeId,
-                        principalTable: "MerchProductTypes",
+                        principalTable: "merchelloProductTypes",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_MerchProductRoots_MerchTaxGroups_TaxGroupId",
+                        name: "FK_merchelloProductRoots_merchelloTaxGroups_TaxGroupId",
                         column: x => x.TaxGroupId,
-                        principalTable: "MerchTaxGroups",
+                        principalTable: "merchelloTaxGroups",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
-                name: "MerchShippingOptions",
+                name: "merchelloShippingOptions",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -296,17 +296,17 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchShippingOptions", x => x.Id);
+                    table.PrimaryKey("PK_merchelloShippingOptions", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_MerchShippingOptions_MerchWarehouses_WarehouseId",
+                        name: "FK_merchelloShippingOptions_merchelloWarehouses_WarehouseId",
                         column: x => x.WarehouseId,
-                        principalTable: "MerchWarehouses",
+                        principalTable: "merchelloWarehouses",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
-                name: "MerchWarehouseServiceRegions",
+                name: "merchelloWarehouseServiceRegions",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -317,17 +317,17 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchWarehouseServiceRegions", x => x.Id);
+                    table.PrimaryKey("PK_merchelloWarehouseServiceRegions", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_MerchWarehouseServiceRegions_MerchWarehouses_WarehouseId",
+                        name: "FK_merchelloWarehouseServiceRegions_merchelloWarehouses_WarehouseId",
                         column: x => x.WarehouseId,
-                        principalTable: "MerchWarehouses",
+                        principalTable: "merchelloWarehouses",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
-                name: "MerchLineItems",
+                name: "merchelloLineItems",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -349,22 +349,22 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchLineItems", x => x.Id);
+                    table.PrimaryKey("PK_merchelloLineItems", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_MerchLineItems_MerchInvoices_InvoiceId",
+                        name: "FK_merchelloLineItems_merchelloInvoices_InvoiceId",
                         column: x => x.InvoiceId,
-                        principalTable: "MerchInvoices",
+                        principalTable: "merchelloInvoices",
                         principalColumn: "Id");
                     table.ForeignKey(
-                        name: "FK_MerchLineItems_MerchOrders_OrderId",
+                        name: "FK_merchelloLineItems_merchelloOrders_OrderId",
                         column: x => x.OrderId,
-                        principalTable: "MerchOrders",
+                        principalTable: "merchelloOrders",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
-                name: "MerchShipments",
+                name: "merchelloShipments",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -382,23 +382,23 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchShipments", x => x.Id);
+                    table.PrimaryKey("PK_merchelloShipments", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_MerchShipments_MerchOrders_OrderId",
+                        name: "FK_merchelloShipments_merchelloOrders_OrderId",
                         column: x => x.OrderId,
-                        principalTable: "MerchOrders",
+                        principalTable: "merchelloOrders",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_MerchShipments_MerchWarehouses_SupplierId",
+                        name: "FK_merchelloShipments_merchelloWarehouses_SupplierId",
                         column: x => x.SupplierId,
-                        principalTable: "MerchWarehouses",
+                        principalTable: "merchelloWarehouses",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
-                name: "MerchProductRootCategories",
+                name: "merchelloProductRootCategories",
                 columns: table => new
                 {
                     CategoryId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -406,23 +406,23 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchProductRootCategories", x => new { x.CategoryId, x.ProductRootId });
+                    table.PrimaryKey("PK_merchelloProductRootCategories", x => new { x.CategoryId, x.ProductRootId });
                     table.ForeignKey(
-                        name: "FK_MerchProductRootCategories_MerchProductCategories_CategoryId",
+                        name: "FK_merchelloProductRootCategories_merchelloProductCategories_CategoryId",
                         column: x => x.CategoryId,
-                        principalTable: "MerchProductCategories",
+                        principalTable: "merchelloProductCategories",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_MerchProductRootCategories_MerchProductRoots_ProductRootId",
+                        name: "FK_merchelloProductRootCategories_merchelloProductRoots_ProductRootId",
                         column: x => x.ProductRootId,
-                        principalTable: "MerchProductRoots",
+                        principalTable: "merchelloProductRoots",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
-                name: "MerchProductRootWarehouse",
+                name: "merchelloProductRootWarehouse",
                 columns: table => new
                 {
                     ProductRootId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -431,23 +431,23 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchProductRootWarehouse", x => new { x.ProductRootId, x.WarehouseId });
+                    table.PrimaryKey("PK_merchelloProductRootWarehouse", x => new { x.ProductRootId, x.WarehouseId });
                     table.ForeignKey(
-                        name: "FK_MerchProductRootWarehouse_MerchProductRoots_ProductRootId",
+                        name: "FK_merchelloProductRootWarehouse_merchelloProductRoots_ProductRootId",
                         column: x => x.ProductRootId,
-                        principalTable: "MerchProductRoots",
+                        principalTable: "merchelloProductRoots",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_MerchProductRootWarehouse_MerchWarehouses_WarehouseId",
+                        name: "FK_merchelloProductRootWarehouse_merchelloWarehouses_WarehouseId",
                         column: x => x.WarehouseId,
-                        principalTable: "MerchWarehouses",
+                        principalTable: "merchelloWarehouses",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
-                name: "MerchProducts",
+                name: "merchelloProducts",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -485,17 +485,17 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchProducts", x => x.Id);
+                    table.PrimaryKey("PK_merchelloProducts", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_MerchProducts_MerchProductRoots_ProductRootId",
+                        name: "FK_merchelloProducts_merchelloProductRoots_ProductRootId",
                         column: x => x.ProductRootId,
-                        principalTable: "MerchProductRoots",
+                        principalTable: "merchelloProductRoots",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
-                name: "MerchShippingCosts",
+                name: "merchelloShippingCosts",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -506,17 +506,17 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchShippingCosts", x => x.Id);
+                    table.PrimaryKey("PK_merchelloShippingCosts", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_MerchShippingCosts_MerchShippingOptions_ShippingOptionId",
+                        name: "FK_merchelloShippingCosts_merchelloShippingOptions_ShippingOptionId",
                         column: x => x.ShippingOptionId,
-                        principalTable: "MerchShippingOptions",
+                        principalTable: "merchelloShippingOptions",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
-                name: "MerchShippingOptionCountries",
+                name: "merchelloShippingOptionCountries",
                 columns: table => new
                 {
                     ShippingOptionId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -526,17 +526,17 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchShippingOptionCountries", x => new { x.ShippingOptionId, x.CountryCode });
+                    table.PrimaryKey("PK_merchelloShippingOptionCountries", x => new { x.ShippingOptionId, x.CountryCode });
                     table.ForeignKey(
-                        name: "FK_MerchShippingOptionCountries_MerchShippingOptions_ShippingOptionId",
+                        name: "FK_merchelloShippingOptionCountries_merchelloShippingOptions_ShippingOptionId",
                         column: x => x.ShippingOptionId,
-                        principalTable: "MerchShippingOptions",
+                        principalTable: "merchelloShippingOptions",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
-                name: "MerchProductAllowedShippingOptions",
+                name: "merchelloProductAllowedShippingOptions",
                 columns: table => new
                 {
                     AllowedShippingOptionsId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -544,23 +544,23 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchProductAllowedShippingOptions", x => new { x.AllowedShippingOptionsId, x.ProductId });
+                    table.PrimaryKey("PK_merchelloProductAllowedShippingOptions", x => new { x.AllowedShippingOptionsId, x.ProductId });
                     table.ForeignKey(
-                        name: "FK_MerchProductAllowedShippingOptions_MerchProducts_ProductId",
+                        name: "FK_merchelloProductAllowedShippingOptions_merchelloProducts_ProductId",
                         column: x => x.ProductId,
-                        principalTable: "MerchProducts",
+                        principalTable: "merchelloProducts",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_MerchProductAllowedShippingOptions_MerchShippingOptions_AllowedShippingOptionsId",
+                        name: "FK_merchelloProductAllowedShippingOptions_merchelloShippingOptions_AllowedShippingOptionsId",
                         column: x => x.AllowedShippingOptionsId,
-                        principalTable: "MerchShippingOptions",
+                        principalTable: "merchelloShippingOptions",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
-                name: "MerchProductExcludedShippingOptions",
+                name: "merchelloProductExcludedShippingOptions",
                 columns: table => new
                 {
                     ExcludedShippingOptionsId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -568,23 +568,23 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchProductExcludedShippingOptions", x => new { x.ExcludedShippingOptionsId, x.Product1Id });
+                    table.PrimaryKey("PK_merchelloProductExcludedShippingOptions", x => new { x.ExcludedShippingOptionsId, x.Product1Id });
                     table.ForeignKey(
-                        name: "FK_MerchProductExcludedShippingOptions_MerchProducts_Product1Id",
+                        name: "FK_merchelloProductExcludedShippingOptions_merchelloProducts_Product1Id",
                         column: x => x.Product1Id,
-                        principalTable: "MerchProducts",
+                        principalTable: "merchelloProducts",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_MerchProductExcludedShippingOptions_MerchShippingOptions_ExcludedShippingOptionsId",
+                        name: "FK_merchelloProductExcludedShippingOptions_merchelloShippingOptions_ExcludedShippingOptionsId",
                         column: x => x.ExcludedShippingOptionsId,
-                        principalTable: "MerchShippingOptions",
+                        principalTable: "merchelloShippingOptions",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
-                name: "MerchProductFiltersProducts",
+                name: "merchelloProductFiltersProducts",
                 columns: table => new
                 {
                     FilterId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -592,23 +592,23 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchProductFiltersProducts", x => new { x.FilterId, x.ProductId });
+                    table.PrimaryKey("PK_merchelloProductFiltersProducts", x => new { x.FilterId, x.ProductId });
                     table.ForeignKey(
-                        name: "FK_MerchProductFiltersProducts_MerchProductFilters_FilterId",
+                        name: "FK_merchelloProductFiltersProducts_merchelloProductFilters_FilterId",
                         column: x => x.FilterId,
-                        principalTable: "MerchProductFilters",
+                        principalTable: "merchelloProductFilters",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_MerchProductFiltersProducts_MerchProducts_ProductId",
+                        name: "FK_merchelloProductFiltersProducts_merchelloProducts_ProductId",
                         column: x => x.ProductId,
-                        principalTable: "MerchProducts",
+                        principalTable: "merchelloProducts",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
-                name: "MerchProductRootShippingOptions",
+                name: "merchelloProductRootShippingOptions",
                 columns: table => new
                 {
                     ProductRootId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -616,23 +616,23 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchProductRootShippingOptions", x => new { x.ProductRootId, x.ShippingOptionId });
+                    table.PrimaryKey("PK_merchelloProductRootShippingOptions", x => new { x.ProductRootId, x.ShippingOptionId });
                     table.ForeignKey(
-                        name: "FK_MerchProductRootShippingOptions_MerchProducts_ProductRootId",
+                        name: "FK_merchelloProductRootShippingOptions_merchelloProducts_ProductRootId",
                         column: x => x.ProductRootId,
-                        principalTable: "MerchProducts",
+                        principalTable: "merchelloProducts",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_MerchProductRootShippingOptions_MerchShippingOptions_ShippingOptionId",
+                        name: "FK_merchelloProductRootShippingOptions_merchelloShippingOptions_ShippingOptionId",
                         column: x => x.ShippingOptionId,
-                        principalTable: "MerchShippingOptions",
+                        principalTable: "merchelloShippingOptions",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
-                name: "MerchProductWarehouse",
+                name: "merchelloProductWarehouse",
                 columns: table => new
                 {
                     ProductId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -645,23 +645,23 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchProductWarehouse", x => new { x.ProductId, x.WarehouseId });
+                    table.PrimaryKey("PK_merchelloProductWarehouse", x => new { x.ProductId, x.WarehouseId });
                     table.ForeignKey(
-                        name: "FK_MerchProductWarehouse_MerchProducts_ProductId",
+                        name: "FK_merchelloProductWarehouse_merchelloProducts_ProductId",
                         column: x => x.ProductId,
-                        principalTable: "MerchProducts",
+                        principalTable: "merchelloProducts",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_MerchProductWarehouse_MerchWarehouses_WarehouseId",
+                        name: "FK_merchelloProductWarehouse_merchelloWarehouses_WarehouseId",
                         column: x => x.WarehouseId,
-                        principalTable: "MerchWarehouses",
+                        principalTable: "merchelloWarehouses",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
-                name: "MerchProductWarehousePriceOverride",
+                name: "merchelloProductWarehousePriceOverride",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -672,23 +672,23 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchProductWarehousePriceOverride", x => x.Id);
+                    table.PrimaryKey("PK_merchelloProductWarehousePriceOverride", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_MerchProductWarehousePriceOverride_MerchProducts_ProductId",
+                        name: "FK_merchelloProductWarehousePriceOverride_merchelloProducts_ProductId",
                         column: x => x.ProductId,
-                        principalTable: "MerchProducts",
+                        principalTable: "merchelloProducts",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_MerchProductWarehousePriceOverride_MerchWarehouses_WarehouseId",
+                        name: "FK_merchelloProductWarehousePriceOverride_merchelloWarehouses_WarehouseId",
                         column: x => x.WarehouseId,
-                        principalTable: "MerchWarehouses",
+                        principalTable: "merchelloWarehouses",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
-                name: "MerchShippingOptionCountries_CountyStates",
+                name: "merchelloShippingOptionCountries_CountyStates",
                 columns: table => new
                 {
                     CountryShippingOptionCountryShippingOptionId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -700,128 +700,128 @@ namespace Merchello.Core.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MerchShippingOptionCountries_CountyStates", x => new { x.CountryShippingOptionCountryShippingOptionId, x.CountryShippingOptionCountryCountryCode, x.Id });
+                    table.PrimaryKey("PK_merchelloShippingOptionCountries_CountyStates", x => new { x.CountryShippingOptionCountryShippingOptionId, x.CountryShippingOptionCountryCountryCode, x.Id });
                     table.ForeignKey(
-                        name: "FK_MerchShippingOptionCountries_CountyStates_MerchShippingOptionCountries_CountryShippingOptionCountryShippingOptionId_CountryS~",
+                        name: "FK_merchelloShippingOptionCountries_CountyStates_merchelloShippingOptionCountries_CountryShippingOptionCountryShippingOptionId_~",
                         columns: x => new { x.CountryShippingOptionCountryShippingOptionId, x.CountryShippingOptionCountryCountryCode },
-                        principalTable: "MerchShippingOptionCountries",
+                        principalTable: "merchelloShippingOptionCountries",
                         principalColumns: new[] { "ShippingOptionId", "CountryCode" },
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_MerchLineItems_InvoiceId",
-                table: "MerchLineItems",
+                name: "IX_merchelloLineItems_InvoiceId",
+                table: "merchelloLineItems",
                 column: "InvoiceId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_MerchLineItems_OrderId",
-                table: "MerchLineItems",
+                name: "IX_merchelloLineItems_OrderId",
+                table: "merchelloLineItems",
                 column: "OrderId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_MerchOrders_InvoiceId",
-                table: "MerchOrders",
+                name: "IX_merchelloOrders_InvoiceId",
+                table: "merchelloOrders",
                 column: "InvoiceId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_MerchPayments_InvoiceId",
-                table: "MerchPayments",
+                name: "IX_merchelloPayments_InvoiceId",
+                table: "merchelloPayments",
                 column: "InvoiceId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_MerchProductAllowedShippingOptions_ProductId",
-                table: "MerchProductAllowedShippingOptions",
+                name: "IX_merchelloProductAllowedShippingOptions_ProductId",
+                table: "merchelloProductAllowedShippingOptions",
                 column: "ProductId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_MerchProductExcludedShippingOptions_Product1Id",
-                table: "MerchProductExcludedShippingOptions",
+                name: "IX_merchelloProductExcludedShippingOptions_Product1Id",
+                table: "merchelloProductExcludedShippingOptions",
                 column: "Product1Id");
 
             migrationBuilder.CreateIndex(
-                name: "IX_MerchProductFilters_ProductFilterGroupId",
-                table: "MerchProductFilters",
+                name: "IX_merchelloProductFilters_ProductFilterGroupId",
+                table: "merchelloProductFilters",
                 column: "ProductFilterGroupId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_MerchProductFiltersProducts_ProductId",
-                table: "MerchProductFiltersProducts",
+                name: "IX_merchelloProductFiltersProducts_ProductId",
+                table: "merchelloProductFiltersProducts",
                 column: "ProductId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_MerchProductRootCategories_ProductRootId",
-                table: "MerchProductRootCategories",
+                name: "IX_merchelloProductRootCategories_ProductRootId",
+                table: "merchelloProductRootCategories",
                 column: "ProductRootId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_MerchProductRoots_ProductTypeId",
-                table: "MerchProductRoots",
+                name: "IX_merchelloProductRoots_ProductTypeId",
+                table: "merchelloProductRoots",
                 column: "ProductTypeId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_MerchProductRoots_TaxGroupId",
-                table: "MerchProductRoots",
+                name: "IX_merchelloProductRoots_TaxGroupId",
+                table: "merchelloProductRoots",
                 column: "TaxGroupId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_MerchProductRootShippingOptions_ShippingOptionId",
-                table: "MerchProductRootShippingOptions",
+                name: "IX_merchelloProductRootShippingOptions_ShippingOptionId",
+                table: "merchelloProductRootShippingOptions",
                 column: "ShippingOptionId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_MerchProductRootWarehouse_WarehouseId",
-                table: "MerchProductRootWarehouse",
+                name: "IX_merchelloProductRootWarehouse_WarehouseId",
+                table: "merchelloProductRootWarehouse",
                 column: "WarehouseId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_MerchProducts_Price",
-                table: "MerchProducts",
+                name: "IX_merchelloProducts_Price",
+                table: "merchelloProducts",
                 column: "Price");
 
             migrationBuilder.CreateIndex(
-                name: "IX_MerchProducts_ProductRootId",
-                table: "MerchProducts",
+                name: "IX_merchelloProducts_ProductRootId",
+                table: "merchelloProducts",
                 column: "ProductRootId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_MerchProductWarehouse_WarehouseId",
-                table: "MerchProductWarehouse",
+                name: "IX_merchelloProductWarehouse_WarehouseId",
+                table: "merchelloProductWarehouse",
                 column: "WarehouseId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_MerchProductWarehousePriceOverride_ProductId",
-                table: "MerchProductWarehousePriceOverride",
+                name: "IX_merchelloProductWarehousePriceOverride_ProductId",
+                table: "merchelloProductWarehousePriceOverride",
                 column: "ProductId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_MerchProductWarehousePriceOverride_WarehouseId",
-                table: "MerchProductWarehousePriceOverride",
+                name: "IX_merchelloProductWarehousePriceOverride_WarehouseId",
+                table: "merchelloProductWarehousePriceOverride",
                 column: "WarehouseId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_MerchShipments_OrderId",
-                table: "MerchShipments",
+                name: "IX_merchelloShipments_OrderId",
+                table: "merchelloShipments",
                 column: "OrderId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_MerchShipments_SupplierId",
-                table: "MerchShipments",
+                name: "IX_merchelloShipments_SupplierId",
+                table: "merchelloShipments",
                 column: "SupplierId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_MerchShippingCosts_ShippingOptionId",
-                table: "MerchShippingCosts",
+                name: "IX_merchelloShippingCosts_ShippingOptionId",
+                table: "merchelloShippingCosts",
                 column: "ShippingOptionId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_MerchShippingOptions_WarehouseId",
-                table: "MerchShippingOptions",
+                name: "IX_merchelloShippingOptions_WarehouseId",
+                table: "merchelloShippingOptions",
                 column: "WarehouseId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_MerchWarehouseServiceRegions_WarehouseId",
-                table: "MerchWarehouseServiceRegions",
+                name: "IX_merchelloWarehouseServiceRegions_WarehouseId",
+                table: "merchelloWarehouseServiceRegions",
                 column: "WarehouseId");
         }
 
@@ -829,88 +829,88 @@ namespace Merchello.Core.Data.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "MerchBaskets");
+                name: "merchelloBaskets");
 
             migrationBuilder.DropTable(
-                name: "MerchLineItems");
+                name: "merchelloLineItems");
 
             migrationBuilder.DropTable(
-                name: "MerchPayments");
+                name: "merchelloPayments");
 
             migrationBuilder.DropTable(
-                name: "MerchProductAllowedShippingOptions");
+                name: "merchelloProductAllowedShippingOptions");
 
             migrationBuilder.DropTable(
-                name: "MerchProductExcludedShippingOptions");
+                name: "merchelloProductExcludedShippingOptions");
 
             migrationBuilder.DropTable(
-                name: "MerchProductFiltersProducts");
+                name: "merchelloProductFiltersProducts");
 
             migrationBuilder.DropTable(
-                name: "MerchProductRootCategories");
+                name: "merchelloProductRootCategories");
 
             migrationBuilder.DropTable(
-                name: "MerchProductRootShippingOptions");
+                name: "merchelloProductRootShippingOptions");
 
             migrationBuilder.DropTable(
-                name: "MerchProductRootWarehouse");
+                name: "merchelloProductRootWarehouse");
 
             migrationBuilder.DropTable(
-                name: "MerchProductWarehouse");
+                name: "merchelloProductWarehouse");
 
             migrationBuilder.DropTable(
-                name: "MerchProductWarehousePriceOverride");
+                name: "merchelloProductWarehousePriceOverride");
 
             migrationBuilder.DropTable(
-                name: "MerchShipments");
+                name: "merchelloShipments");
 
             migrationBuilder.DropTable(
-                name: "MerchShippingCosts");
+                name: "merchelloShippingCosts");
 
             migrationBuilder.DropTable(
-                name: "MerchShippingOptionCountries_CountyStates");
+                name: "merchelloShippingOptionCountries_CountyStates");
 
             migrationBuilder.DropTable(
-                name: "MerchShippingProviderConfigurations");
+                name: "merchelloShippingProviderConfigurations");
 
             migrationBuilder.DropTable(
-                name: "MerchWarehouseServiceRegions");
+                name: "merchelloWarehouseServiceRegions");
 
             migrationBuilder.DropTable(
-                name: "MerchProductFilters");
+                name: "merchelloProductFilters");
 
             migrationBuilder.DropTable(
-                name: "MerchProductCategories");
+                name: "merchelloProductCategories");
 
             migrationBuilder.DropTable(
-                name: "MerchProducts");
+                name: "merchelloProducts");
 
             migrationBuilder.DropTable(
-                name: "MerchOrders");
+                name: "merchelloOrders");
 
             migrationBuilder.DropTable(
-                name: "MerchShippingOptionCountries");
+                name: "merchelloShippingOptionCountries");
 
             migrationBuilder.DropTable(
-                name: "MerchProductFilterGroups");
+                name: "merchelloProductFilterGroups");
 
             migrationBuilder.DropTable(
-                name: "MerchProductRoots");
+                name: "merchelloProductRoots");
 
             migrationBuilder.DropTable(
-                name: "MerchInvoices");
+                name: "merchelloInvoices");
 
             migrationBuilder.DropTable(
-                name: "MerchShippingOptions");
+                name: "merchelloShippingOptions");
 
             migrationBuilder.DropTable(
-                name: "MerchProductTypes");
+                name: "merchelloProductTypes");
 
             migrationBuilder.DropTable(
-                name: "MerchTaxGroups");
+                name: "merchelloTaxGroups");
 
             migrationBuilder.DropTable(
-                name: "MerchWarehouses");
+                name: "merchelloWarehouses");
         }
     }
 }

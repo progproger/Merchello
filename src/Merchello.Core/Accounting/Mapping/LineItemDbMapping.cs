@@ -9,7 +9,7 @@ public class LineItemDbMapping : IEntityTypeConfiguration<LineItem>
 {
     public void Configure(EntityTypeBuilder<LineItem> builder)
     {
-        builder.ToTable("MerchLineItems");
+        builder.ToTable("merchelloLineItems");
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).IsRequired();
         builder.Property(x => x.Sku).HasMaxLength(100);

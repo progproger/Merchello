@@ -9,7 +9,7 @@ public class ProductDbMapping : IEntityTypeConfiguration<Product>
 {
     public void Configure(EntityTypeBuilder<Product> builder)
     {
-        builder.ToTable("MerchProducts");
+        builder.ToTable("merchelloProducts");
 
         builder.HasOne(d => d.ProductRoot)
             .WithMany(p => p.Products)
@@ -61,11 +61,11 @@ public class ProductDbMapping : IEntityTypeConfiguration<Product>
         // Configure many-to-many relationship for AllowedShippingOptions
         builder.HasMany(p => p.AllowedShippingOptions)
             .WithMany()
-            .UsingEntity(j => j.ToTable("MerchProductAllowedShippingOptions"));
+            .UsingEntity(j => j.ToTable("merchelloProductAllowedShippingOptions"));
 
         // Configure many-to-many relationship for ExcludedShippingOptions
         builder.HasMany(p => p.ExcludedShippingOptions)
             .WithMany()
-            .UsingEntity(j => j.ToTable("MerchProductExcludedShippingOptions"));
+            .UsingEntity(j => j.ToTable("merchelloProductExcludedShippingOptions"));
     }
 }

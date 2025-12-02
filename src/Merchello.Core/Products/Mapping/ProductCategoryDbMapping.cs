@@ -8,7 +8,7 @@ public class ProductCategoryDbMapping : IEntityTypeConfiguration<ProductCategory
 {
     public void Configure(EntityTypeBuilder<ProductCategory> builder)
     {
-        builder.ToTable("MerchProductCategories");
+        builder.ToTable("merchelloProductCategories");
 
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).IsRequired();
@@ -17,7 +17,7 @@ public class ProductCategoryDbMapping : IEntityTypeConfiguration<ProductCategory
             .HasMany(x => x.Products)
             .WithMany(x => x.Categories)
             .UsingEntity<Dictionary<string, object>>(
-                "MerchProductRootCategories", // Name of the join table
+                "merchelloProductRootCategories", // Name of the join table
                 j => j
                     .HasOne<ProductRoot>() // Specify the target entity
                     .WithMany()

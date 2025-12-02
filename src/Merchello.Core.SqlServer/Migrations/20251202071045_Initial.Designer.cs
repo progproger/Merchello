@@ -9,10 +9,10 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace Merchello.Core.Data.Migrations
+namespace Merchello.Core.SqlServer.Migrations
 {
     [DbContext(typeof(MerchelloDbContext))]
-    [Migration("20251201153013_Initial")]
+    [Migration("20251202071045_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -24,51 +24,6 @@ namespace Merchello.Core.Data.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
-
-            modelBuilder.Entity("MerchProductFiltersProducts", b =>
-                {
-                    b.Property<Guid>("FilterId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("ProductId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("FilterId", "ProductId");
-
-                    b.HasIndex("ProductId");
-
-                    b.ToTable("MerchProductFiltersProducts");
-                });
-
-            modelBuilder.Entity("MerchProductRootCategories", b =>
-                {
-                    b.Property<Guid>("CategoryId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("ProductRootId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("CategoryId", "ProductRootId");
-
-                    b.HasIndex("ProductRootId");
-
-                    b.ToTable("MerchProductRootCategories");
-                });
-
-            modelBuilder.Entity("MerchProductRootShippingOptions", b =>
-                {
-                    b.Property<Guid>("ProductRootId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("ShippingOptionId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("ProductRootId", "ShippingOptionId");
-
-                    b.HasIndex("ShippingOptionId");
-
-                    b.ToTable("MerchProductRootShippingOptions");
-                });
 
             modelBuilder.Entity("Merchello.Core.Accounting.Models.Invoice", b =>
                 {
@@ -114,7 +69,7 @@ namespace Merchello.Core.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("MerchInvoices", (string)null);
+                    b.ToTable("merchelloInvoices", (string)null);
                 });
 
             modelBuilder.Entity("Merchello.Core.Accounting.Models.LineItem", b =>
@@ -181,7 +136,7 @@ namespace Merchello.Core.Data.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.ToTable("MerchLineItems", (string)null);
+                    b.ToTable("merchelloLineItems", (string)null);
                 });
 
             modelBuilder.Entity("Merchello.Core.Accounting.Models.Order", b =>
@@ -247,7 +202,7 @@ namespace Merchello.Core.Data.Migrations
 
                     b.HasIndex("InvoiceId");
 
-                    b.ToTable("MerchOrders", (string)null);
+                    b.ToTable("merchelloOrders", (string)null);
                 });
 
             modelBuilder.Entity("Merchello.Core.Accounting.Models.Payment", b =>
@@ -289,7 +244,7 @@ namespace Merchello.Core.Data.Migrations
 
                     b.HasIndex("InvoiceId");
 
-                    b.ToTable("MerchPayments", (string)null);
+                    b.ToTable("merchelloPayments", (string)null);
                 });
 
             modelBuilder.Entity("Merchello.Core.Accounting.Models.TaxGroup", b =>
@@ -314,7 +269,7 @@ namespace Merchello.Core.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("MerchTaxGroups", (string)null);
+                    b.ToTable("merchelloTaxGroups", (string)null);
                 });
 
             modelBuilder.Entity("Merchello.Core.Checkout.Models.Basket", b =>
@@ -389,7 +344,7 @@ namespace Merchello.Core.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("MerchBaskets", (string)null);
+                    b.ToTable("merchelloBaskets", (string)null);
                 });
 
             modelBuilder.Entity("Merchello.Core.Products.Models.Product", b =>
@@ -519,7 +474,7 @@ namespace Merchello.Core.Data.Migrations
 
                     b.HasIndex("ProductRootId");
 
-                    b.ToTable("MerchProducts", (string)null);
+                    b.ToTable("merchelloProducts", (string)null);
                 });
 
             modelBuilder.Entity("Merchello.Core.Products.Models.ProductCategory", b =>
@@ -535,7 +490,7 @@ namespace Merchello.Core.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("MerchProductCategories", (string)null);
+                    b.ToTable("merchelloProductCategories", (string)null);
                 });
 
             modelBuilder.Entity("Merchello.Core.Products.Models.ProductFilter", b =>
@@ -567,7 +522,7 @@ namespace Merchello.Core.Data.Migrations
 
                     b.HasIndex("ProductFilterGroupId");
 
-                    b.ToTable("MerchProductFilters", (string)null);
+                    b.ToTable("merchelloProductFilters", (string)null);
                 });
 
             modelBuilder.Entity("Merchello.Core.Products.Models.ProductFilterGroup", b =>
@@ -586,7 +541,7 @@ namespace Merchello.Core.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("MerchProductFilterGroups", (string)null);
+                    b.ToTable("merchelloProductFilterGroups", (string)null);
                 });
 
             modelBuilder.Entity("Merchello.Core.Products.Models.ProductRoot", b =>
@@ -646,7 +601,7 @@ namespace Merchello.Core.Data.Migrations
 
                     b.HasIndex("TaxGroupId");
 
-                    b.ToTable("MerchProductRoots", (string)null);
+                    b.ToTable("merchelloProductRoots", (string)null);
                 });
 
             modelBuilder.Entity("Merchello.Core.Products.Models.ProductRootWarehouse", b =>
@@ -664,7 +619,7 @@ namespace Merchello.Core.Data.Migrations
 
                     b.HasIndex("WarehouseId");
 
-                    b.ToTable("MerchProductRootWarehouse", (string)null);
+                    b.ToTable("merchelloProductRootWarehouse", (string)null);
                 });
 
             modelBuilder.Entity("Merchello.Core.Products.Models.ProductType", b =>
@@ -681,7 +636,7 @@ namespace Merchello.Core.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("MerchProductTypes", (string)null);
+                    b.ToTable("merchelloProductTypes", (string)null);
                 });
 
             modelBuilder.Entity("Merchello.Core.Products.Models.ProductWarehouse", b =>
@@ -715,7 +670,7 @@ namespace Merchello.Core.Data.Migrations
 
                     b.HasIndex("WarehouseId");
 
-                    b.ToTable("MerchProductWarehouse", (string)null);
+                    b.ToTable("merchelloProductWarehouse", (string)null);
                 });
 
             modelBuilder.Entity("Merchello.Core.Products.Models.ProductWarehousePriceOverride", b =>
@@ -742,7 +697,7 @@ namespace Merchello.Core.Data.Migrations
 
                     b.HasIndex("WarehouseId");
 
-                    b.ToTable("MerchProductWarehousePriceOverride", (string)null);
+                    b.ToTable("merchelloProductWarehousePriceOverride", (string)null);
                 });
 
             modelBuilder.Entity("Merchello.Core.Shipping.Models.Shipment", b =>
@@ -794,7 +749,7 @@ namespace Merchello.Core.Data.Migrations
 
                     b.HasIndex("SupplierId");
 
-                    b.ToTable("MerchShipments", (string)null);
+                    b.ToTable("merchelloShipments", (string)null);
                 });
 
             modelBuilder.Entity("Merchello.Core.Shipping.Models.ShippingCost", b =>
@@ -822,7 +777,7 @@ namespace Merchello.Core.Data.Migrations
 
                     b.HasIndex("ShippingOptionId");
 
-                    b.ToTable("MerchShippingCosts", (string)null);
+                    b.ToTable("merchelloShippingCosts", (string)null);
                 });
 
             modelBuilder.Entity("Merchello.Core.Shipping.Models.ShippingOption", b =>
@@ -886,7 +841,7 @@ namespace Merchello.Core.Data.Migrations
 
                     b.HasIndex("WarehouseId");
 
-                    b.ToTable("MerchShippingOptions", (string)null);
+                    b.ToTable("merchelloShippingOptions", (string)null);
                 });
 
             modelBuilder.Entity("Merchello.Core.Shipping.Models.ShippingOptionCountry", b =>
@@ -900,7 +855,7 @@ namespace Merchello.Core.Data.Migrations
 
                     b.HasKey("ShippingOptionId", "CountryCode");
 
-                    b.ToTable("MerchShippingOptionCountries", (string)null);
+                    b.ToTable("merchelloShippingOptionCountries", (string)null);
                 });
 
             modelBuilder.Entity("Merchello.Core.Shipping.Models.ShippingProviderConfiguration", b =>
@@ -933,7 +888,7 @@ namespace Merchello.Core.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("MerchShippingProviderConfigurations", (string)null);
+                    b.ToTable("merchelloShippingProviderConfigurations", (string)null);
                 });
 
             modelBuilder.Entity("Merchello.Core.Warehouses.Models.Warehouse", b =>
@@ -971,7 +926,7 @@ namespace Merchello.Core.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("MerchWarehouses", (string)null);
+                    b.ToTable("merchelloWarehouses", (string)null);
                 });
 
             modelBuilder.Entity("Merchello.Core.Warehouses.Models.WarehouseServiceRegion", b =>
@@ -999,7 +954,7 @@ namespace Merchello.Core.Data.Migrations
 
                     b.HasIndex("WarehouseId");
 
-                    b.ToTable("MerchWarehouseServiceRegions", (string)null);
+                    b.ToTable("merchelloWarehouseServiceRegions", (string)null);
                 });
 
             modelBuilder.Entity("ProductShippingOption", b =>
@@ -1014,7 +969,7 @@ namespace Merchello.Core.Data.Migrations
 
                     b.HasIndex("ProductId");
 
-                    b.ToTable("MerchProductAllowedShippingOptions", (string)null);
+                    b.ToTable("merchelloProductAllowedShippingOptions", (string)null);
                 });
 
             modelBuilder.Entity("ProductShippingOption1", b =>
@@ -1029,52 +984,52 @@ namespace Merchello.Core.Data.Migrations
 
                     b.HasIndex("Product1Id");
 
-                    b.ToTable("MerchProductExcludedShippingOptions", (string)null);
+                    b.ToTable("merchelloProductExcludedShippingOptions", (string)null);
                 });
 
-            modelBuilder.Entity("MerchProductFiltersProducts", b =>
+            modelBuilder.Entity("merchelloProductFiltersProducts", b =>
                 {
-                    b.HasOne("Merchello.Core.Products.Models.ProductFilter", null)
-                        .WithMany()
-                        .HasForeignKey("FilterId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                    b.Property<Guid>("FilterId")
+                        .HasColumnType("uniqueidentifier");
 
-                    b.HasOne("Merchello.Core.Products.Models.Product", null)
-                        .WithMany()
-                        .HasForeignKey("ProductId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("FilterId", "ProductId");
+
+                    b.HasIndex("ProductId");
+
+                    b.ToTable("merchelloProductFiltersProducts");
                 });
 
-            modelBuilder.Entity("MerchProductRootCategories", b =>
+            modelBuilder.Entity("merchelloProductRootCategories", b =>
                 {
-                    b.HasOne("Merchello.Core.Products.Models.ProductCategory", null)
-                        .WithMany()
-                        .HasForeignKey("CategoryId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uniqueidentifier");
 
-                    b.HasOne("Merchello.Core.Products.Models.ProductRoot", null)
-                        .WithMany()
-                        .HasForeignKey("ProductRootId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                    b.Property<Guid>("ProductRootId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("CategoryId", "ProductRootId");
+
+                    b.HasIndex("ProductRootId");
+
+                    b.ToTable("merchelloProductRootCategories");
                 });
 
-            modelBuilder.Entity("MerchProductRootShippingOptions", b =>
+            modelBuilder.Entity("merchelloProductRootShippingOptions", b =>
                 {
-                    b.HasOne("Merchello.Core.Products.Models.Product", null)
-                        .WithMany()
-                        .HasForeignKey("ProductRootId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                    b.Property<Guid>("ProductRootId")
+                        .HasColumnType("uniqueidentifier");
 
-                    b.HasOne("Merchello.Core.Shipping.Models.ShippingOption", null)
-                        .WithMany()
-                        .HasForeignKey("ShippingOptionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                    b.Property<Guid>("ShippingOptionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("ProductRootId", "ShippingOptionId");
+
+                    b.HasIndex("ShippingOptionId");
+
+                    b.ToTable("merchelloProductRootShippingOptions");
                 });
 
             modelBuilder.Entity("Merchello.Core.Accounting.Models.LineItem", b =>
@@ -1138,7 +1093,7 @@ namespace Merchello.Core.Data.Migrations
 
                             b1.HasKey("OrderId");
 
-                            b1.ToTable("MerchOrders");
+                            b1.ToTable("merchelloOrders");
 
                             b1.WithOwner()
                                 .HasForeignKey("OrderId");
@@ -1156,7 +1111,7 @@ namespace Merchello.Core.Data.Migrations
 
                                     b2.HasKey("AddressOrderId");
 
-                                    b2.ToTable("MerchOrders");
+                                    b2.ToTable("merchelloOrders");
 
                                     b2.WithOwner()
                                         .HasForeignKey("AddressOrderId");
@@ -1346,7 +1301,7 @@ namespace Merchello.Core.Data.Migrations
 
                             b1.HasKey("ShippingOptionCountryShippingOptionId", "ShippingOptionCountryCountryCode");
 
-                            b1.ToTable("MerchShippingOptionCountries");
+                            b1.ToTable("merchelloShippingOptionCountries");
 
                             b1.WithOwner()
                                 .HasForeignKey("ShippingOptionCountryShippingOptionId", "ShippingOptionCountryCountryCode");
@@ -1373,7 +1328,7 @@ namespace Merchello.Core.Data.Migrations
 
                                     b2.HasKey("CountryShippingOptionCountryShippingOptionId", "CountryShippingOptionCountryCountryCode", "Id");
 
-                                    b2.ToTable("MerchShippingOptionCountries_CountyStates");
+                                    b2.ToTable("merchelloShippingOptionCountries_CountyStates");
 
                                     b2.WithOwner()
                                         .HasForeignKey("CountryShippingOptionCountryShippingOptionId", "CountryShippingOptionCountryCountryCode");
@@ -1425,6 +1380,51 @@ namespace Merchello.Core.Data.Migrations
                     b.HasOne("Merchello.Core.Products.Models.Product", null)
                         .WithMany()
                         .HasForeignKey("Product1Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("merchelloProductFiltersProducts", b =>
+                {
+                    b.HasOne("Merchello.Core.Products.Models.ProductFilter", null)
+                        .WithMany()
+                        .HasForeignKey("FilterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Merchello.Core.Products.Models.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("merchelloProductRootCategories", b =>
+                {
+                    b.HasOne("Merchello.Core.Products.Models.ProductCategory", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Merchello.Core.Products.Models.ProductRoot", null)
+                        .WithMany()
+                        .HasForeignKey("ProductRootId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("merchelloProductRootShippingOptions", b =>
+                {
+                    b.HasOne("Merchello.Core.Products.Models.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductRootId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Merchello.Core.Shipping.Models.ShippingOption", null)
+                        .WithMany()
+                        .HasForeignKey("ShippingOptionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

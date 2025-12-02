@@ -8,7 +8,7 @@ public class ProductWarehousePriceOverrideDbMapping : IEntityTypeConfiguration<P
 {
     public void Configure(EntityTypeBuilder<ProductWarehousePriceOverride> builder)
     {
-        builder.ToTable("MerchProductWarehousePriceOverride");
+        builder.ToTable("merchelloProductWarehousePriceOverride");
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).IsRequired();
 

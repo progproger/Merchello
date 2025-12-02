@@ -8,7 +8,7 @@ public class ProductFilterDbMapping : IEntityTypeConfiguration<ProductFilter>
 {
     public void Configure(EntityTypeBuilder<ProductFilter> builder)
     {
-        builder.ToTable("MerchProductFilters");
+        builder.ToTable("merchelloProductFilters");
 
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).IsRequired();
@@ -25,7 +25,7 @@ public class ProductFilterDbMapping : IEntityTypeConfiguration<ProductFilter>
             .HasMany(x => x.Products)
             .WithMany(x => x.Filters)
             .UsingEntity<Dictionary<string, object>>(
-                "MerchProductFiltersProducts", // Name of the join table
+                "merchelloProductFiltersProducts", // Name of the join table
                 j => j
                     .HasOne<Product>() // Specify the target entity
                     .WithMany()

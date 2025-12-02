@@ -9,7 +9,7 @@ public class ShipmentDbMapping : IEntityTypeConfiguration<Shipment>
 {
     public void Configure(EntityTypeBuilder<Shipment> builder)
     {
-        builder.ToTable("MerchShipments");
+        builder.ToTable("merchelloShipments");
 
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).IsRequired();

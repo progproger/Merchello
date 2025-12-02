@@ -8,7 +8,7 @@ public class ShippingCostDbMapping : IEntityTypeConfiguration<ShippingCost>
 {
     public void Configure(EntityTypeBuilder<ShippingCost> builder)
     {
-        builder.ToTable("MerchShippingCosts");
+        builder.ToTable("merchelloShippingCosts");
 
         builder.HasKey(x => x.Id);
 

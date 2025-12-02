@@ -8,7 +8,7 @@ public class WarehouseServiceRegionDbMapping : IEntityTypeConfiguration<Warehous
 {
     public void Configure(EntityTypeBuilder<WarehouseServiceRegion> builder)
     {
-        builder.ToTable("MerchWarehouseServiceRegions");
+        builder.ToTable("merchelloWarehouseServiceRegions");
 
         builder.HasKey(x => x.Id);
 

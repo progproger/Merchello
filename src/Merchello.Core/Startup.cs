@@ -21,6 +21,7 @@ using Merchello.Core.Shipping.Services.Interfaces;
 using Merchello.Core.Warehouses.Services;
 using Merchello.Core.Warehouses.Services.Interfaces;
 using Merchello.Core.Accounting.Factories;
+using Merchello.Core.Locality.Factories;
 using Merchello.Core.Warehouses.Factories;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -70,13 +71,13 @@ public static class Startup
         builder.Services.AddSingleton<ShippingOptionFactory>();
         builder.Services.AddSingleton<WarehouseFactory>();
         builder.Services.AddSingleton<LineItemFactory>();
-        builder.Services.AddSingleton<Merchello.Core.Locality.Factories.AddressFactory>();
+        builder.Services.AddSingleton<AddressFactory>();
 
         // Services
         builder.Services.AddScoped<ILineItemService, LineItemService>();
         builder.Services.AddScoped<ICheckoutService, CheckoutService>();
         builder.Services.AddScoped<IOrderService, OrderService>();
-        builder.Services.AddScoped<IInventoryService, Merchello.Core.Products.Services.InventoryService>();
+        builder.Services.AddScoped<IInventoryService, InventoryService>();
         builder.Services.AddScoped<IOrderStatusHandler, DefaultOrderStatusHandler>();
         builder.Services.AddScoped<IShippingQuoteService, ShippingQuoteService>();
         builder.Services.AddScoped<IShippingProviderManager, ShippingProviderManager>();
@@ -92,11 +93,11 @@ public static class Startup
         builder.Services.AddScoped<ITaxService, TaxService>();
 
         // Plugin assemblies for extension scanning
-        var assembliesToScan = (pluginAssemblies ?? Enumerable.Empty<Assembly>())
+        List<Assembly> assembliesToScan = (pluginAssemblies ?? [])
             .Distinct()
             .ToList();
 
-        if (!assembliesToScan.Any())
+        if (assembliesToScan.Count == 0)
         {
             assembliesToScan.Add(typeof(Startup).Assembly);
         }

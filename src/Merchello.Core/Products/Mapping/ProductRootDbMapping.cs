@@ -9,7 +9,7 @@ public class ProductRootDbMapping : IEntityTypeConfiguration<ProductRoot>
 {
     public void Configure(EntityTypeBuilder<ProductRoot> builder)
     {
-        builder.ToTable("MerchProductRoots");
+        builder.ToTable("merchelloProductRoots");
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).IsRequired();
 

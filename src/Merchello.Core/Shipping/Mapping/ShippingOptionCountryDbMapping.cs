@@ -8,7 +8,7 @@ public class ShippingOptionCountryDbMapping : IEntityTypeConfiguration<ShippingO
 {
     public void Configure(EntityTypeBuilder<ShippingOptionCountry> builder)
     {
-        builder.ToTable("MerchShippingOptionCountries");
+        builder.ToTable("merchelloShippingOptionCountries");
 
         builder.HasKey(x => new { x.ShippingOptionId, x.CountryCode }); // Composite key
 

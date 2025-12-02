@@ -9,7 +9,7 @@ public class InvoiceDbMapping : IEntityTypeConfiguration<Invoice>
 {
     public void Configure(EntityTypeBuilder<Invoice> builder)
     {
-            builder.ToTable("MerchInvoices");
+            builder.ToTable("merchelloInvoices");
             builder.HasKey(x => x.Id);
             builder.Property(x => x.Id).IsRequired();
             builder.Property(x => x.Adjustments).ToJsonConversion(3000);

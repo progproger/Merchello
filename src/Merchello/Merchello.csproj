@@ -35,6 +35,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Merchello.Core\Merchello.Core.csproj" />
+    <ProjectReference Include="..\Merchello.Core.SqlServer\Merchello.Core.SqlServer.csproj" />
+    <ProjectReference Include="..\Merchello.Core.Sqlite\Merchello.Core.Sqlite.csproj" />
   </ItemGroup>
   
   <ItemGroup>
@@ -45,13 +47,6 @@
 
     <!-- However make the Umbraco-package.json included for dotnet pack or nuget package and visible to the solution -->
     <None Include="Client\public\umbraco-package.json" Pack="false" />
-  </ItemGroup>
-  
-  <ItemGroup>
-    <None Include="..\..\docs\README_nuget.md">
-      <Pack>True</Pack>
-      <PackagePath>\</PackagePath>
-    </None>
   </ItemGroup>
 
 </Project>

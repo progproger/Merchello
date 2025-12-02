@@ -8,7 +8,7 @@ public class ShippingProviderConfigurationDbMapping : IEntityTypeConfiguration<S
 {
     public void Configure(EntityTypeBuilder<ShippingProviderConfiguration> builder)
     {
-        builder.ToTable("MerchShippingProviderConfigurations");
+        builder.ToTable("merchelloShippingProviderConfigurations");
 
         builder.HasKey(x => x.Id);
 

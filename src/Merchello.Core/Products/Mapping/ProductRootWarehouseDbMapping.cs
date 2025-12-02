@@ -8,7 +8,7 @@ public class ProductRootWarehouseDbMapping : IEntityTypeConfiguration<ProductRoo
 {
     public void Configure(EntityTypeBuilder<ProductRootWarehouse> builder)
     {
-        builder.ToTable("MerchProductRootWarehouse");
+        builder.ToTable("merchelloProductRootWarehouse");
         builder
             .HasKey(pw => new { pw.ProductRootId, pw.WarehouseId }); // Composite key
 

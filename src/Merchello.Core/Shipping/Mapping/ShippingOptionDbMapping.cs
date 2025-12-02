@@ -10,7 +10,7 @@ public class ShippingOptionDbMapping : IEntityTypeConfiguration<ShippingOption>
 {
     public void Configure(EntityTypeBuilder<ShippingOption> builder)
     {
-        builder.ToTable("MerchShippingOptions");
+        builder.ToTable("merchelloShippingOptions");
 
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).IsRequired();
@@ -28,7 +28,7 @@ public class ShippingOptionDbMapping : IEntityTypeConfiguration<ShippingOption>
             .HasMany(x => x.Products)
             .WithMany(x => x.ShippingOptions)
             .UsingEntity<Dictionary<string, object>>(
-                "MerchProductRootShippingOptions", // Name of the join table
+                "merchelloProductRootShippingOptions", // Name of the join table
                 j => j
                     .HasOne<Product>() // Specify the target entity
                     .WithMany()

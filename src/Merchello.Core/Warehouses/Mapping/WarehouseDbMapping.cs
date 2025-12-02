@@ -9,7 +9,7 @@ public class WarehouseDbMapping : IEntityTypeConfiguration<Warehouse>
 {
     public void Configure(EntityTypeBuilder<Warehouse> builder)
     {
-        builder.ToTable("MerchWarehouses");
+        builder.ToTable("merchelloWarehouses");
 
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).IsRequired();
