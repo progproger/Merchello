@@ -1,11 +1,12 @@
-﻿using Merchello.Core.Shared.Extensions;
+﻿using Merchello.Core.Payments.Models;
+using Merchello.Core.Shared.Extensions;
 
 namespace Merchello.Core.Accounting.Models;
 
 public class Payment
 {
     /// <summary>
-    /// Basket Id
+    /// Payment Id
     /// </summary>
     public Guid Id { get; set; } = GuidExtensions.NewSequentialGuid;
 
@@ -15,22 +16,32 @@ public class Payment
     public Guid InvoiceId { get; set; }
 
     /// <summary>
-    /// Invoice this order is part of
+    /// Invoice this payment is for
     /// </summary>
     public Invoice Invoice { get; set; } = default!;
 
     /// <summary>
-    /// Amount of this payment
+    /// Amount of this payment (negative for refunds)
     /// </summary>
     public decimal Amount { get; set; }
 
     /// <summary>
-    /// Payment method
+    /// Payment method (legacy field, use PaymentProviderAlias for new payments)
     /// </summary>
     public string? PaymentMethod { get; set; }
 
     /// <summary>
-    /// Transaction Id
+    /// The payment provider alias used (e.g., "stripe", "paypal")
+    /// </summary>
+    public string? PaymentProviderAlias { get; set; }
+
+    /// <summary>
+    /// Type of payment record
+    /// </summary>
+    public PaymentType PaymentType { get; set; } = PaymentType.Payment;
+
+    /// <summary>
+    /// Transaction Id from the payment provider
     /// </summary>
     public string? TransactionId { get; set; }
 
@@ -48,6 +59,26 @@ public class Payment
     /// Whether this payment was a success
     /// </summary>
     public bool PaymentSuccess { get; set; }
+
+    /// <summary>
+    /// Reason for refund (if PaymentType is Refund/PartialRefund)
+    /// </summary>
+    public string? RefundReason { get; set; }
+
+    /// <summary>
+    /// Parent payment ID (for refunds linking to original payment)
+    /// </summary>
+    public Guid? ParentPaymentId { get; set; }
+
+    /// <summary>
+    /// Navigation to parent payment (for refunds)
+    /// </summary>
+    public Payment? ParentPayment { get; set; }
+
+    /// <summary>
+    /// Child refund payments
+    /// </summary>
+    public virtual ICollection<Payment>? Refunds { get; set; }
 
     /// <summary>
     /// Date created

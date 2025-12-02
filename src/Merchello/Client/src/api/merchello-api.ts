@@ -160,6 +160,22 @@ import type {
   ShipmentDetailDto,
 } from '../orders/types.js';
 
+// Import payment types
+import type {
+  PaymentProviderDto,
+  PaymentProviderSettingDto,
+  PaymentProviderFieldDto,
+  CreatePaymentProviderSettingDto,
+  UpdatePaymentProviderSettingDto,
+} from '../payment-providers/types.js';
+
+import type {
+  PaymentDto,
+  PaymentStatusDto,
+  RecordManualPaymentDto,
+  ProcessRefundDto,
+} from '../orders/payments/types.js';
+
 // Helper to build query string from params
 function buildQueryString(params?: Record<string, unknown>): string {
   if (!params) return '';
@@ -204,4 +220,68 @@ export const MerchelloApi = {
   /** Delete a shipment (releases items back to unfulfilled) */
   deleteShipment: (shipmentId: string) =>
     apiDelete(`shipments/${shipmentId}`),
+
+  // ============================================
+  // Payment Providers API
+  // ============================================
+
+  /** Get all available payment providers (discovered from assemblies) */
+  getAvailablePaymentProviders: () =>
+    apiGet<PaymentProviderDto[]>('payment-providers/available'),
+
+  /** Get all configured payment provider settings */
+  getPaymentProviders: () =>
+    apiGet<PaymentProviderSettingDto[]>('payment-providers'),
+
+  /** Get a specific payment provider setting by ID */
+  getPaymentProvider: (id: string) =>
+    apiGet<PaymentProviderSettingDto>(`payment-providers/${id}`),
+
+  /** Get configuration fields for a payment provider */
+  getPaymentProviderFields: (alias: string) =>
+    apiGet<PaymentProviderFieldDto[]>(`payment-providers/${alias}/fields`),
+
+  /** Create/enable a payment provider */
+  createPaymentProvider: (data: CreatePaymentProviderSettingDto) =>
+    apiPost<PaymentProviderSettingDto>('payment-providers', data),
+
+  /** Update a payment provider setting */
+  updatePaymentProvider: (id: string, data: UpdatePaymentProviderSettingDto) =>
+    apiPut<PaymentProviderSettingDto>(`payment-providers/${id}`, data),
+
+  /** Delete a payment provider setting */
+  deletePaymentProvider: (id: string) =>
+    apiDelete(`payment-providers/${id}`),
+
+  /** Toggle payment provider enabled status */
+  togglePaymentProvider: (id: string, isEnabled: boolean) =>
+    apiPut<PaymentProviderSettingDto>(`payment-providers/${id}/toggle`, { isEnabled }),
+
+  /** Reorder payment providers */
+  reorderPaymentProviders: (orderedIds: string[]) =>
+    apiPut<void>('payment-providers/reorder', { orderedIds }),
+
+  // ============================================
+  // Payments API
+  // ============================================
+
+  /** Get all payments for an invoice */
+  getInvoicePayments: (invoiceId: string) =>
+    apiGet<PaymentDto[]>(`invoices/${invoiceId}/payments`),
+
+  /** Get payment status for an invoice */
+  getPaymentStatus: (invoiceId: string) =>
+    apiGet<PaymentStatusDto>(`invoices/${invoiceId}/payment-status`),
+
+  /** Get a specific payment by ID */
+  getPayment: (id: string) =>
+    apiGet<PaymentDto>(`payments/${id}`),
+
+  /** Record a manual/offline payment */
+  recordManualPayment: (invoiceId: string, data: RecordManualPaymentDto) =>
+    apiPost<PaymentDto>(`invoices/${invoiceId}/payments/manual`, data),
+
+  /** Process a refund */
+  processRefund: (paymentId: string, data: ProcessRefundDto) =>
+    apiPost<PaymentDto>(`payments/${paymentId}/refund`, data),
 };

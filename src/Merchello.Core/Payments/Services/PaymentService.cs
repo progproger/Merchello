@@ -1,0 +1,632 @@
+using Merchello.Core.Accounting.Models;
+using Merchello.Core.Data;
+using Merchello.Core.Payments.Models;
+using Merchello.Core.Payments.Providers;
+using Merchello.Core.Shared.Models;
+using Merchello.Core.Shared.Models.Enums;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Umbraco.Cms.Persistence.EFCore.Scoping;
+
+namespace Merchello.Core.Payments.Services;
+
+/// <summary>
+/// Service for handling payment operations.
+/// </summary>
+public class PaymentService : IPaymentService
+{
+    private readonly IPaymentProviderManager _providerManager;
+    private readonly IEFCoreScopeProvider<MerchelloDbContext> _efCoreScopeProvider;
+    private readonly ILogger<PaymentService> _logger;
+
+    public PaymentService(
+        IPaymentProviderManager providerManager,
+        IEFCoreScopeProvider<MerchelloDbContext> efCoreScopeProvider,
+        ILogger<PaymentService> logger)
+    {
+        _providerManager = providerManager;
+        _efCoreScopeProvider = efCoreScopeProvider;
+        _logger = logger;
+    }
+
+    /// <inheritdoc />
+    public async Task<PaymentInitiationResult> InitiatePaymentAsync(
+        Guid invoiceId,
+        string providerAlias,
+        string returnUrl,
+        string cancelUrl,
+        CancellationToken cancellationToken = default)
+    {
+        // Get the provider
+        var registeredProvider = await _providerManager.GetProviderAsync(providerAlias, requireEnabled: true, cancellationToken);
+        if (registeredProvider == null)
+        {
+            return PaymentInitiationResult.Failure(
+                $"Payment provider '{providerAlias}' is not available or not enabled.");
+        }
+
+        // Load the invoice to get amount and details
+        using var scope = _efCoreScopeProvider.CreateScope();
+        var invoice = await scope.ExecuteWithContextAsync(async db =>
+            await db.Invoices
+                .AsNoTracking()
+                .FirstOrDefaultAsync(i => i.Id == invoiceId, cancellationToken));
+        scope.Complete();
+
+        if (invoice == null)
+        {
+            return PaymentInitiationResult.Failure($"Invoice '{invoiceId}' not found.");
+        }
+
+        // Create the payment request
+        var request = new PaymentRequest
+        {
+            InvoiceId = invoiceId,
+            Amount = invoice.Total,
+            Currency = "GBP", // TODO: Get from store/invoice settings
+            ReturnUrl = returnUrl,
+            CancelUrl = cancelUrl,
+            Description = $"Payment for Invoice {invoice.InvoiceNumber}",
+            Metadata = new Dictionary<string, string>
+            {
+                ["invoiceId"] = invoiceId.ToString(),
+                ["invoiceNumber"] = invoice.InvoiceNumber
+            }
+        };
+
+        try
+        {
+            var result = await registeredProvider.Provider.InitiatePaymentAsync(request, cancellationToken);
+
+            _logger.LogInformation(
+                "Payment initiated for invoice {InvoiceId} via {Provider}. Success: {Success}, TransactionId: {TransactionId}",
+                invoiceId, providerAlias, result.Success, result.TransactionId);
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to initiate payment for invoice {InvoiceId} via {Provider}", invoiceId, providerAlias);
+            return PaymentInitiationResult.Failure($"Payment initiation failed: {ex.Message}");
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<CrudResult<Payment>> RecordPaymentAsync(
+        Guid invoiceId,
+        string providerAlias,
+        string transactionId,
+        decimal amount,
+        string? description = null,
+        string? fraudResponse = null,
+        CancellationToken cancellationToken = default)
+    {
+        var result = new CrudResult<Payment>();
+
+        using var scope = _efCoreScopeProvider.CreateScope();
+        await scope.ExecuteWithContextAsync<Task>(async db =>
+        {
+            // Check if invoice exists
+            var invoiceExists = await db.Invoices.AnyAsync(i => i.Id == invoiceId, cancellationToken);
+            if (!invoiceExists)
+            {
+                result.Messages.Add(new ResultMessage
+                {
+                    Message = $"Invoice '{invoiceId}' not found.",
+                    ResultMessageType = ResultMessageType.Error
+                });
+                return;
+            }
+
+            // Check for duplicate transaction ID
+            var duplicateTransaction = await db.Payments
+                .AnyAsync(p => p.TransactionId == transactionId, cancellationToken);
+            if (duplicateTransaction)
+            {
+                _logger.LogWarning(
+                    "Duplicate payment transaction {TransactionId} for invoice {InvoiceId}. Ignoring.",
+                    transactionId, invoiceId);
+
+                // Return existing payment as success (idempotent)
+                var existingPayment = await db.Payments
+                    .FirstAsync(p => p.TransactionId == transactionId, cancellationToken);
+                result.ResultObject = existingPayment;
+                result.Messages.Add(new ResultMessage
+                {
+                    Message = "Payment already recorded for this transaction.",
+                    ResultMessageType = ResultMessageType.Warning
+                });
+                return;
+            }
+
+            var payment = new Payment
+            {
+                InvoiceId = invoiceId,
+                Amount = amount,
+                PaymentProviderAlias = providerAlias,
+                PaymentType = PaymentType.Payment,
+                TransactionId = transactionId,
+                Description = description,
+                FraudResponse = fraudResponse,
+                PaymentSuccess = true,
+                DateCreated = DateTime.UtcNow
+            };
+
+            db.Payments.Add(payment);
+            await db.SaveChangesAsync(cancellationToken);
+
+            result.ResultObject = payment;
+            _logger.LogInformation(
+                "Payment recorded: {PaymentId} for invoice {InvoiceId}, amount {Amount}, transaction {TransactionId}",
+                payment.Id, invoiceId, amount, transactionId);
+        });
+        scope.Complete();
+
+        return result;
+    }
+
+    /// <inheritdoc />
+    public async Task<CrudResult<Payment>> ProcessRefundAsync(
+        Guid paymentId,
+        decimal? amount,
+        string reason,
+        CancellationToken cancellationToken = default)
+    {
+        var result = new CrudResult<Payment>();
+
+        // Load the original payment
+        using var scope = _efCoreScopeProvider.CreateScope();
+        var originalPayment = await scope.ExecuteWithContextAsync(async db =>
+            await db.Payments
+                .Include(p => p.Refunds)
+                .FirstOrDefaultAsync(p => p.Id == paymentId, cancellationToken));
+
+        if (originalPayment == null)
+        {
+            result.Messages.Add(new ResultMessage
+            {
+                Message = $"Payment '{paymentId}' not found.",
+                ResultMessageType = ResultMessageType.Error
+            });
+            scope.Complete();
+            return result;
+        }
+
+        if (originalPayment.PaymentType != PaymentType.Payment)
+        {
+            result.Messages.Add(new ResultMessage
+            {
+                Message = "Cannot refund a refund payment.",
+                ResultMessageType = ResultMessageType.Error
+            });
+            scope.Complete();
+            return result;
+        }
+
+        // Calculate refundable amount
+        var existingRefunds = originalPayment.Refunds?.Sum(r => Math.Abs(r.Amount)) ?? 0;
+        var refundableAmount = originalPayment.Amount - existingRefunds;
+        var refundAmount = amount ?? refundableAmount;
+
+        if (refundAmount <= 0)
+        {
+            result.Messages.Add(new ResultMessage
+            {
+                Message = "Refund amount must be greater than zero.",
+                ResultMessageType = ResultMessageType.Error
+            });
+            scope.Complete();
+            return result;
+        }
+
+        if (refundAmount > refundableAmount)
+        {
+            result.Messages.Add(new ResultMessage
+            {
+                Message = $"Refund amount ({refundAmount:C}) exceeds refundable amount ({refundableAmount:C}).",
+                ResultMessageType = ResultMessageType.Error
+            });
+            scope.Complete();
+            return result;
+        }
+
+        // Get the provider to process the refund
+        if (string.IsNullOrEmpty(originalPayment.PaymentProviderAlias))
+        {
+            result.Messages.Add(new ResultMessage
+            {
+                Message = "Payment has no provider alias. Use RecordManualRefundAsync instead.",
+                ResultMessageType = ResultMessageType.Error
+            });
+            scope.Complete();
+            return result;
+        }
+
+        var registeredProvider = await _providerManager.GetProviderAsync(
+            originalPayment.PaymentProviderAlias,
+            requireEnabled: false, // Allow refunds even if provider is disabled
+            cancellationToken);
+
+        if (registeredProvider == null)
+        {
+            result.Messages.Add(new ResultMessage
+            {
+                Message = $"Payment provider '{originalPayment.PaymentProviderAlias}' not found.",
+                ResultMessageType = ResultMessageType.Error
+            });
+            scope.Complete();
+            return result;
+        }
+
+        if (!registeredProvider.Metadata.SupportsRefunds)
+        {
+            result.Messages.Add(new ResultMessage
+            {
+                Message = $"Provider '{originalPayment.PaymentProviderAlias}' does not support refunds.",
+                ResultMessageType = ResultMessageType.Error
+            });
+            scope.Complete();
+            return result;
+        }
+
+        if (refundAmount < refundableAmount && !registeredProvider.Metadata.SupportsPartialRefunds)
+        {
+            result.Messages.Add(new ResultMessage
+            {
+                Message = $"Provider '{originalPayment.PaymentProviderAlias}' does not support partial refunds.",
+                ResultMessageType = ResultMessageType.Error
+            });
+            scope.Complete();
+            return result;
+        }
+
+        // Process refund with provider
+        var refundRequest = new RefundRequest
+        {
+            PaymentId = paymentId,
+            TransactionId = originalPayment.TransactionId!,
+            Amount = refundAmount,
+            Reason = reason
+        };
+
+        RefundResult refundResult;
+        try
+        {
+            refundResult = await registeredProvider.Provider.RefundPaymentAsync(refundRequest, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to process refund for payment {PaymentId}", paymentId);
+            result.Messages.Add(new ResultMessage
+            {
+                Message = $"Refund processing failed: {ex.Message}",
+                ResultMessageType = ResultMessageType.Error
+            });
+            scope.Complete();
+            return result;
+        }
+
+        if (!refundResult.Success)
+        {
+            result.Messages.Add(new ResultMessage
+            {
+                Message = $"Provider refund failed: {refundResult.ErrorMessage}",
+                ResultMessageType = ResultMessageType.Error
+            });
+            scope.Complete();
+            return result;
+        }
+
+        // Record the refund payment
+        await scope.ExecuteWithContextAsync<Task>(async db =>
+        {
+            var isPartialRefund = refundAmount < originalPayment.Amount;
+            var refundPayment = new Payment
+            {
+                InvoiceId = originalPayment.InvoiceId,
+                Amount = -refundAmount, // Negative amount for refund
+                PaymentProviderAlias = originalPayment.PaymentProviderAlias,
+                PaymentType = isPartialRefund ? PaymentType.PartialRefund : PaymentType.Refund,
+                TransactionId = refundResult.RefundTransactionId,
+                RefundReason = reason,
+                ParentPaymentId = paymentId,
+                PaymentSuccess = true,
+                Description = $"Refund for payment {originalPayment.TransactionId}",
+                DateCreated = DateTime.UtcNow
+            };
+
+            db.Payments.Add(refundPayment);
+            await db.SaveChangesAsync(cancellationToken);
+
+            result.ResultObject = refundPayment;
+            _logger.LogInformation(
+                "Refund recorded: {RefundId} for payment {PaymentId}, amount {Amount}, reason: {Reason}",
+                refundPayment.Id, paymentId, refundAmount, reason);
+        });
+        scope.Complete();
+
+        return result;
+    }
+
+    /// <inheritdoc />
+    public async Task<IEnumerable<Payment>> GetPaymentsForInvoiceAsync(
+        Guid invoiceId,
+        CancellationToken cancellationToken = default)
+    {
+        using var scope = _efCoreScopeProvider.CreateScope();
+        var payments = await scope.ExecuteWithContextAsync(async db =>
+            await db.Payments
+                .AsNoTracking()
+                .Where(p => p.InvoiceId == invoiceId)
+                .Include(p => p.Refunds)
+                .OrderBy(p => p.DateCreated)
+                .ToListAsync(cancellationToken));
+        scope.Complete();
+        return payments;
+    }
+
+    /// <inheritdoc />
+    public async Task<Payment?> GetPaymentAsync(
+        Guid paymentId,
+        CancellationToken cancellationToken = default)
+    {
+        using var scope = _efCoreScopeProvider.CreateScope();
+        var payment = await scope.ExecuteWithContextAsync(async db =>
+            await db.Payments
+                .AsNoTracking()
+                .Include(p => p.Refunds)
+                .FirstOrDefaultAsync(p => p.Id == paymentId, cancellationToken));
+        scope.Complete();
+        return payment;
+    }
+
+    /// <inheritdoc />
+    public async Task<Payment?> GetPaymentByTransactionIdAsync(
+        string transactionId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(transactionId))
+        {
+            return null;
+        }
+
+        using var scope = _efCoreScopeProvider.CreateScope();
+        var payment = await scope.ExecuteWithContextAsync(async db =>
+            await db.Payments
+                .AsNoTracking()
+                .Include(p => p.Refunds)
+                .FirstOrDefaultAsync(p => p.TransactionId == transactionId, cancellationToken));
+        scope.Complete();
+        return payment;
+    }
+
+    /// <inheritdoc />
+    public async Task<InvoicePaymentStatus> GetInvoicePaymentStatusAsync(
+        Guid invoiceId,
+        CancellationToken cancellationToken = default)
+    {
+        using var scope = _efCoreScopeProvider.CreateScope();
+        var statusInfo = await scope.ExecuteWithContextAsync(async db =>
+        {
+            var invoice = await db.Invoices
+                .AsNoTracking()
+                .FirstOrDefaultAsync(i => i.Id == invoiceId, cancellationToken);
+
+            if (invoice == null)
+            {
+                return (InvoiceTotal: 0m, Payments: new List<Payment>());
+            }
+
+            var payments = await db.Payments
+                .AsNoTracking()
+                .Where(p => p.InvoiceId == invoiceId && p.PaymentSuccess)
+                .ToListAsync(cancellationToken);
+
+            return (InvoiceTotal: invoice.Total, Payments: payments);
+        });
+        scope.Complete();
+
+        if (statusInfo.InvoiceTotal == 0 && !statusInfo.Payments.Any())
+        {
+            return InvoicePaymentStatus.Unpaid;
+        }
+
+        var payments = statusInfo.Payments;
+        var invoiceTotal = statusInfo.InvoiceTotal;
+
+        if (!payments.Any())
+        {
+            return InvoicePaymentStatus.Unpaid;
+        }
+
+        // Calculate totals
+        var totalPayments = payments
+            .Where(p => p.PaymentType == PaymentType.Payment)
+            .Sum(p => p.Amount);
+
+        var totalRefunds = payments
+            .Where(p => p.PaymentType == PaymentType.Refund || p.PaymentType == PaymentType.PartialRefund)
+            .Sum(p => Math.Abs(p.Amount));
+
+        var netPayment = totalPayments - totalRefunds;
+
+        // Determine status
+        if (netPayment <= 0)
+        {
+            return InvoicePaymentStatus.Refunded;
+        }
+
+        if (totalRefunds > 0 && netPayment < totalPayments)
+        {
+            if (netPayment >= invoiceTotal)
+            {
+                return InvoicePaymentStatus.PartiallyRefunded;
+            }
+            return InvoicePaymentStatus.PartiallyRefunded;
+        }
+
+        if (netPayment >= invoiceTotal)
+        {
+            return InvoicePaymentStatus.Paid;
+        }
+
+        if (netPayment > 0)
+        {
+            return InvoicePaymentStatus.PartiallyPaid;
+        }
+
+        return InvoicePaymentStatus.Unpaid;
+    }
+
+    /// <inheritdoc />
+    public async Task<CrudResult<Payment>> RecordManualPaymentAsync(
+        Guid invoiceId,
+        decimal amount,
+        string paymentMethod,
+        string? description = null,
+        CancellationToken cancellationToken = default)
+    {
+        var result = new CrudResult<Payment>();
+
+        if (amount <= 0)
+        {
+            result.Messages.Add(new ResultMessage
+            {
+                Message = "Payment amount must be greater than zero.",
+                ResultMessageType = ResultMessageType.Error
+            });
+            return result;
+        }
+
+        using var scope = _efCoreScopeProvider.CreateScope();
+        await scope.ExecuteWithContextAsync<Task>(async db =>
+        {
+            // Verify invoice exists
+            var invoiceExists = await db.Invoices.AnyAsync(i => i.Id == invoiceId, cancellationToken);
+            if (!invoiceExists)
+            {
+                result.Messages.Add(new ResultMessage
+                {
+                    Message = $"Invoice '{invoiceId}' not found.",
+                    ResultMessageType = ResultMessageType.Error
+                });
+                return;
+            }
+
+            var payment = new Payment
+            {
+                InvoiceId = invoiceId,
+                Amount = amount,
+                PaymentMethod = paymentMethod,
+                PaymentProviderAlias = "manual",
+                PaymentType = PaymentType.Payment,
+                TransactionId = $"MANUAL-{Guid.NewGuid():N}".ToUpperInvariant(),
+                Description = description ?? $"Manual payment: {paymentMethod}",
+                PaymentSuccess = true,
+                DateCreated = DateTime.UtcNow
+            };
+
+            db.Payments.Add(payment);
+            await db.SaveChangesAsync(cancellationToken);
+
+            result.ResultObject = payment;
+            _logger.LogInformation(
+                "Manual payment recorded: {PaymentId} for invoice {InvoiceId}, amount {Amount}, method: {Method}",
+                payment.Id, invoiceId, amount, paymentMethod);
+        });
+        scope.Complete();
+
+        return result;
+    }
+
+    /// <inheritdoc />
+    public async Task<CrudResult<Payment>> RecordManualRefundAsync(
+        Guid paymentId,
+        decimal amount,
+        string reason,
+        CancellationToken cancellationToken = default)
+    {
+        var result = new CrudResult<Payment>();
+
+        if (amount <= 0)
+        {
+            result.Messages.Add(new ResultMessage
+            {
+                Message = "Refund amount must be greater than zero.",
+                ResultMessageType = ResultMessageType.Error
+            });
+            return result;
+        }
+
+        using var scope = _efCoreScopeProvider.CreateScope();
+        await scope.ExecuteWithContextAsync<Task>(async db =>
+        {
+            // Load original payment
+            var originalPayment = await db.Payments
+                .Include(p => p.Refunds)
+                .FirstOrDefaultAsync(p => p.Id == paymentId, cancellationToken);
+
+            if (originalPayment == null)
+            {
+                result.Messages.Add(new ResultMessage
+                {
+                    Message = $"Payment '{paymentId}' not found.",
+                    ResultMessageType = ResultMessageType.Error
+                });
+                return;
+            }
+
+            if (originalPayment.PaymentType != PaymentType.Payment)
+            {
+                result.Messages.Add(new ResultMessage
+                {
+                    Message = "Cannot refund a refund payment.",
+                    ResultMessageType = ResultMessageType.Error
+                });
+                return;
+            }
+
+            // Calculate refundable amount
+            var existingRefunds = originalPayment.Refunds?.Sum(r => Math.Abs(r.Amount)) ?? 0;
+            var refundableAmount = originalPayment.Amount - existingRefunds;
+
+            if (amount > refundableAmount)
+            {
+                result.Messages.Add(new ResultMessage
+                {
+                    Message = $"Refund amount ({amount:C}) exceeds refundable amount ({refundableAmount:C}).",
+                    ResultMessageType = ResultMessageType.Error
+                });
+                return;
+            }
+
+            var isPartialRefund = amount < originalPayment.Amount;
+            var refundPayment = new Payment
+            {
+                InvoiceId = originalPayment.InvoiceId,
+                Amount = -amount, // Negative for refund
+                PaymentMethod = originalPayment.PaymentMethod,
+                PaymentProviderAlias = originalPayment.PaymentProviderAlias,
+                PaymentType = isPartialRefund ? PaymentType.PartialRefund : PaymentType.Refund,
+                TransactionId = $"REFUND-{Guid.NewGuid():N}".ToUpperInvariant(),
+                RefundReason = reason,
+                ParentPaymentId = paymentId,
+                PaymentSuccess = true,
+                Description = $"Manual refund for payment {originalPayment.TransactionId}",
+                DateCreated = DateTime.UtcNow
+            };
+
+            db.Payments.Add(refundPayment);
+            await db.SaveChangesAsync(cancellationToken);
+
+            result.ResultObject = refundPayment;
+            _logger.LogInformation(
+                "Manual refund recorded: {RefundId} for payment {PaymentId}, amount {Amount}, reason: {Reason}",
+                refundPayment.Id, paymentId, amount, reason);
+        });
+        scope.Complete();
+
+        return result;
+    }
+}
+

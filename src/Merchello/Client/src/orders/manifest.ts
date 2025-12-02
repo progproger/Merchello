@@ -15,6 +15,22 @@ export const manifests: Array<UmbExtensionManifest> = [
     js: () => import("./shipments/shipment-edit-modal.element.js"),
   },
 
+  // Manual payment modal for recording offline payments
+  {
+    type: "modal",
+    alias: "Merchello.ManualPayment.Modal",
+    name: "Merchello Manual Payment Modal",
+    js: () => import("./payments/manual-payment-modal.element.js"),
+  },
+
+  // Refund modal for processing refunds
+  {
+    type: "modal",
+    alias: "Merchello.Refund.Modal",
+    name: "Merchello Refund Modal",
+    js: () => import("./payments/refund-modal.element.js"),
+  },
+
   // Workspace for orders list (when clicking "Orders" in tree)
   {
     type: "workspace",

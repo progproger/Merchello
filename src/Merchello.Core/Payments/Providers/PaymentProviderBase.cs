@@ -1,0 +1,94 @@
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using Merchello.Core.Payments.Models;
+
+namespace Merchello.Core.Payments.Providers;
+
+/// <summary>
+/// Optional base class for payment providers providing default implementations.
+/// Providers can implement IPaymentProvider directly if preferred.
+/// </summary>
+public abstract class PaymentProviderBase : IPaymentProvider
+{
+    /// <summary>
+    /// The current configuration for this provider.
+    /// </summary>
+    protected PaymentProviderConfiguration? Configuration { get; private set; }
+
+    /// <inheritdoc />
+    public abstract PaymentProviderMetadata Metadata { get; }
+
+    /// <inheritdoc />
+    public virtual ValueTask<IEnumerable<PaymentProviderConfigurationField>> GetConfigurationFieldsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return ValueTask.FromResult<IEnumerable<PaymentProviderConfigurationField>>([]);
+    }
+
+    /// <inheritdoc />
+    public virtual ValueTask ConfigureAsync(
+        PaymentProviderConfiguration? configuration,
+        CancellationToken cancellationToken = default)
+    {
+        Configuration = configuration;
+        return ValueTask.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public abstract Task<PaymentInitiationResult> InitiatePaymentAsync(
+        PaymentRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <inheritdoc />
+    public virtual Task<PaymentCaptureResult> CapturePaymentAsync(
+        string transactionId,
+        decimal? amount = null,
+        CancellationToken cancellationToken = default)
+    {
+        // Default implementation for providers that don't support auth-and-capture
+        return Task.FromResult(new PaymentCaptureResult
+        {
+            Success = false,
+            ErrorMessage = "This payment provider does not support authorization and capture."
+        });
+    }
+
+    /// <inheritdoc />
+    public virtual Task<RefundResult> RefundPaymentAsync(
+        RefundRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        // Default implementation for providers that don't support refunds
+        return Task.FromResult(new RefundResult
+        {
+            Success = false,
+            ErrorMessage = "This payment provider does not support refunds."
+        });
+    }
+
+    /// <inheritdoc />
+    public virtual Task<bool> ValidateWebhookAsync(
+        string payload,
+        IDictionary<string, string> headers,
+        CancellationToken cancellationToken = default)
+    {
+        // Default implementation - providers should override if they use webhooks
+        return Task.FromResult(false);
+    }
+
+    /// <inheritdoc />
+    public virtual Task<WebhookProcessingResult> ProcessWebhookAsync(
+        string payload,
+        IDictionary<string, string> headers,
+        CancellationToken cancellationToken = default)
+    {
+        // Default implementation - providers should override if they use webhooks
+        return Task.FromResult(new WebhookProcessingResult
+        {
+            Success = false,
+            ErrorMessage = "This payment provider does not support webhooks."
+        });
+    }
+}
+

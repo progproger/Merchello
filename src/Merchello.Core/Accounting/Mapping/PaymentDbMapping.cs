@@ -1,4 +1,5 @@
 ﻿using Merchello.Core.Accounting.Models;
+using Merchello.Core.Payments.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -17,9 +18,21 @@ public class PaymentDbMapping : IEntityTypeConfiguration<Payment>
         builder.Property(x => x.Description).HasMaxLength(1000);
         builder.Property(x => x.Amount).HasPrecision(18, 2);
 
+        // New fields for payment provider support
+        builder.Property(x => x.PaymentProviderAlias).HasMaxLength(100);
+        builder.Property(x => x.PaymentType).HasDefaultValue(PaymentType.Payment);
+        builder.Property(x => x.RefundReason).HasMaxLength(1000);
+
+        // Invoice relationship
         builder.HasOne(d => d.Invoice)
             .WithMany(p => p.Payments)
             .HasForeignKey(d => d.InvoiceId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Self-referential relationship for refunds
+        builder.HasOne(x => x.ParentPayment)
+            .WithMany(x => x.Refunds)
+            .HasForeignKey(x => x.ParentPaymentId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

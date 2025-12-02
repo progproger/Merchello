@@ -11,11 +11,14 @@ import { MERCHELLO_FULFILLMENT_MODAL } from "./fulfillment/fulfillment-modal.tok
 // Import the shipments view component
 import "./shipments/shipments-view.element.js";
 
+// Import the payment panel component
+import "./payments/payment-panel.element.js";
+
 @customElement("merchello-order-detail")
 export class MerchelloOrderDetailElement extends UmbElementMixin(LitElement) {
   @state() private _order: OrderDetailDto | null = null;
   @state() private _loading = true;
-  @state() private _activeTab: "details" | "shipments" = "details";
+  @state() private _activeTab: "details" | "shipments" | "payments" = "details";
 
   #workspaceContext?: MerchelloOrderDetailWorkspaceContext;
   #modalManager?: UmbModalManagerContext;
@@ -139,8 +142,15 @@ export class MerchelloOrderDetailElement extends UmbElementMixin(LitElement) {
     return statusMap[status] || "Unknown";
   }
 
-  private _handleTabClick(tab: "details" | "shipments"): void {
+  private _handleTabClick(tab: "details" | "shipments" | "payments"): void {
     this._activeTab = tab;
+  }
+
+  private _handlePaymentChange(): void {
+    // Reload order data when payment changes
+    if (this._order) {
+      this.#workspaceContext?.load(this._order.id);
+    }
   }
 
   render() {
@@ -187,11 +197,25 @@ export class MerchelloOrderDetailElement extends UmbElementMixin(LitElement) {
           >
             Shipments
           </button>
+          <button
+            class="tab ${this._activeTab === "payments" ? "active" : ""}"
+            @click=${() => this._handleTabClick("payments")}
+          >
+            Payments
+          </button>
         </div>
 
         <!-- Tab Content -->
         ${this._activeTab === "shipments"
           ? html`<merchello-shipments-view></merchello-shipments-view>`
+          : this._activeTab === "payments"
+          ? html`
+              <merchello-payment-panel
+                invoiceId=${order.id}
+                @payment-recorded=${this._handlePaymentChange}
+                @refund-processed=${this._handlePaymentChange}
+              ></merchello-payment-panel>
+            `
           : html`
         <!-- Main Content -->
         <div class="order-content">

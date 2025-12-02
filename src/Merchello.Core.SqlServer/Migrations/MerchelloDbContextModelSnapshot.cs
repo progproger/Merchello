@@ -242,12 +242,28 @@ namespace Merchello.Core.SqlServer.Migrations
                     b.Property<Guid>("InvoiceId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("ParentPaymentId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("PaymentMethod")
                         .HasMaxLength(350)
                         .HasColumnType("nvarchar(350)");
 
+                    b.Property<string>("PaymentProviderAlias")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<bool>("PaymentSuccess")
                         .HasColumnType("bit");
+
+                    b.Property<int>("PaymentType")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("RefundReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("TransactionId")
                         .HasMaxLength(350)
@@ -256,6 +272,8 @@ namespace Merchello.Core.SqlServer.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("InvoiceId");
+
+                    b.HasIndex("ParentPaymentId");
 
                     b.ToTable("merchelloPayments", (string)null);
                 });
@@ -358,6 +376,46 @@ namespace Merchello.Core.SqlServer.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("merchelloBaskets", (string)null);
+                });
+
+            modelBuilder.Entity("Merchello.Core.Payments.Models.PaymentProviderSetting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Configuration")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<DateTime>("DateCreated")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("DateUpdated")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ProviderAlias")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProviderAlias")
+                        .IsUnique();
+
+                    b.ToTable("merchelloPaymentProviders", (string)null);
                 });
 
             modelBuilder.Entity("Merchello.Core.Products.Models.Product", b =>
@@ -1270,7 +1328,14 @@ namespace Merchello.Core.SqlServer.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Merchello.Core.Accounting.Models.Payment", "ParentPayment")
+                        .WithMany("Refunds")
+                        .HasForeignKey("ParentPaymentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Invoice");
+
+                    b.Navigation("ParentPayment");
                 });
 
             modelBuilder.Entity("Merchello.Core.Products.Models.Product", b =>
@@ -1576,6 +1641,11 @@ namespace Merchello.Core.SqlServer.Migrations
                     b.Navigation("LineItems");
 
                     b.Navigation("Shipments");
+                });
+
+            modelBuilder.Entity("Merchello.Core.Accounting.Models.Payment", b =>
+                {
+                    b.Navigation("Refunds");
                 });
 
             modelBuilder.Entity("Merchello.Core.Accounting.Models.TaxGroup", b =>

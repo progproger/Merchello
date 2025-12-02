@@ -18,6 +18,8 @@ using Merchello.Core.Shipping.Factories;
 using Merchello.Core.Shipping.Providers;
 using Merchello.Core.Shipping.Services;
 using Merchello.Core.Shipping.Services.Interfaces;
+using Merchello.Core.Payments.Providers;
+using Merchello.Core.Payments.Services;
 using Merchello.Core.Warehouses.Services;
 using Merchello.Core.Warehouses.Services.Interfaces;
 using Merchello.Core.Accounting.Factories;
@@ -94,6 +96,10 @@ public static class Startup
         builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
         builder.Services.AddScoped<IProductService, ProductService>();
         builder.Services.AddScoped<ITaxService, TaxService>();
+
+        // Payment services
+        builder.Services.AddScoped<IPaymentProviderManager, PaymentProviderManager>();
+        builder.Services.AddScoped<IPaymentService, PaymentService>();
 
         // Plugin assemblies for extension scanning
         List<Assembly> assembliesToScan = (pluginAssemblies ?? [])

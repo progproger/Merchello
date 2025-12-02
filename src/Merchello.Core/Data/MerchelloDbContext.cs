@@ -1,6 +1,7 @@
 using System.Reflection;
 using Merchello.Core.Accounting.Models;
 using Merchello.Core.Checkout.Models;
+using Merchello.Core.Payments.Models;
 using Merchello.Core.Products.Models;
 using Merchello.Core.Shipping.Models;
 using Merchello.Core.Warehouses.Models;
@@ -46,6 +47,9 @@ public class MerchelloDbContext : DbContext
     public DbSet<Shipment> Shipments => Set<Shipment>();
     public DbSet<ShippingOption> ShippingOptions => Set<ShippingOption>();
     public DbSet<ShippingProviderConfiguration> ShippingProviderConfigurations => Set<ShippingProviderConfiguration>();
+
+    // Payment Provider DbSets
+    public DbSet<PaymentProviderSetting> PaymentProviderSettings => Set<PaymentProviderSetting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
