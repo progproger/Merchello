@@ -195,12 +195,15 @@ export class MerchelloProductDetailElement extends UmbElementMixin(LitElement) {
     itemSelector: ".option-card",
     containerSelector: ".options-list",
     onChange: ({ model }) => {
-      this._formData = { ...this._formData, productOptions: model };
+      const reordered = model.map((o, i) => ({ ...o, sortOrder: i }));
+      this._formData = { ...this._formData, productOptions: reordered };
+      this.#optionSorter.setModel(reordered);
     },
   });
 
   constructor() {
     super();
+    this.#optionSorter.disable();
     this.consumeContext(UMB_WORKSPACE_CONTEXT, (context) => {
       this.#workspaceContext = context as MerchelloProductsWorkspaceContext;
       if (this.#workspaceContext) {
@@ -208,7 +211,6 @@ export class MerchelloProductDetailElement extends UmbElementMixin(LitElement) {
           this._product = product ?? null;
           if (product) {
             this._formData = { ...product };
-            this.#optionSorter.setModel(product.productOptions ?? []);
             // Initialize shipping options from product data
             this._shippingOptions = product.availableShippingOptions ?? [];
             // Reset batch-selection state when product reloads
@@ -1056,11 +1058,52 @@ export class MerchelloProductDetailElement extends UmbElementMixin(LitElement) {
     // Save shipping exclusions (bulk mode - applies to all variants)
     await this._saveShippingExclusions();
 
+    // Save option sort order if changed (sort-only, no variant regeneration)
+    await this._saveOptionSortOrderIfChanged();
+
     if (data) {
       // Reload to get updated variant data
       await this.#workspaceContext?.reload();
       this.#notificationContext?.peek("positive", { data: { headline: "Product saved", message: "Changes have been saved successfully" } });
     }
+  }
+
+  private async _saveOptionSortOrderIfChanged(): Promise<void> {
+    if (!this._product?.id) return;
+    const original = this._product.productOptions ?? [];
+    const current = this._formData.productOptions ?? [];
+    if (original.length === 0) return;
+
+    const orderChanged = original.some((o, i) => {
+      const cur = current[i];
+      return !cur || cur.id !== o.id || cur.sortOrder !== o.sortOrder;
+    });
+    if (!orderChanged) return;
+
+    const options = current.map((opt, index) => ({
+      id: opt.id,
+      name: opt.name,
+      alias: opt.alias ?? undefined,
+      sortOrder: index,
+      optionTypeAlias: opt.optionTypeAlias ?? undefined,
+      optionUiAlias: opt.optionUiAlias ?? undefined,
+      isVariant: opt.isVariant,
+      isMultiSelect: opt.isVariant ? false : (opt.isMultiSelect ?? true),
+      isRequired: opt.isVariant ? false : (opt.isRequired ?? false),
+      values: opt.values.map((val, valIndex) => ({
+        id: val.id,
+        name: val.name,
+        sortOrder: valIndex,
+        hexValue: val.hexValue ?? undefined,
+        mediaKey: val.mediaKey ?? undefined,
+        priceAdjustment: val.priceAdjustment,
+        costAdjustment: val.costAdjustment,
+        skuSuffix: val.skuSuffix ?? undefined,
+        weightKg: val.weightKg ?? undefined,
+      })),
+    }));
+
+    await MerchelloApi.saveProductOptions(this._product.id, options);
   }
 
   /** Saves shipping exclusions for all variants (bulk mode) */
@@ -2039,6 +2082,8 @@ export class MerchelloProductDetailElement extends UmbElementMixin(LitElement) {
   }
 
   private _renderOptionsTab(): unknown {
+    this.#optionSorter.enable();
+    this.#optionSorter.setModel(this._formData.productOptions ?? []);
     const options = this._formData.productOptions ?? [];
     const isNew = this.#workspaceContext?.isNew ?? true;
     const estimatedVariants = calculateEstimatedVariantCount(options);
@@ -2527,6 +2572,10 @@ export class MerchelloProductDetailElement extends UmbElementMixin(LitElement) {
 
     const isNew = this.#workspaceContext?.isNew ?? true;
     const activeTab = this._getActiveTab();
+
+    if (activeTab !== "options") {
+      this.#optionSorter.disable();
+    }
 
     return html`
       <umb-body-layout header-fit-height main-no-padding>
