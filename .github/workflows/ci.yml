@@ -131,13 +131,16 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${{ steps.version.outputs.version }}"
-          TEMPLATE_DIR="src/Merchello.StarterSite.Template/content/Merchello.Site"
+          CONTENT_DIR="src/Merchello.StarterSite.Template/content"
+          PROJECT_DIR="${CONTENT_DIR}/Merchello.Site.Web"
 
-          rm -rf src/Merchello.StarterSite.Template/content
-          mkdir -p "${TEMPLATE_DIR}"
+          rm -rf "${CONTENT_DIR}"
+          mkdir -p "${PROJECT_DIR}"
 
+          # Copy project files into .Web subfolder
           rsync -a \
             --exclude='bin/' --exclude='obj/' --exclude='.vs/' \
+            --exclude='.template.config/' \
             --exclude='Properties/launchSettings.json' \
             --exclude='appsettings.Development.json' \
             --exclude='appsettings-schema.json' \
@@ -151,28 +154,42 @@ jobs:
             --exclude='wwwroot/media/' \
             --exclude='App_Data/' \
             --exclude='.gitignore' \
-            src/Merchello.Site/ "${TEMPLATE_DIR}/"
+            src/Merchello.Site/ "${PROJECT_DIR}/"
+
+          # Copy .template.config to content root (solution level)
+          cp -r src/Merchello.Site/.template.config "${CONTENT_DIR}/.template.config"
+
+          # Create .slnx solution file at content root
+          printf '<Solution>\n  <Project Path="Merchello.Site.Web/Merchello.Site.Web.csproj" />\n</Solution>\n' \
+            > "${CONTENT_DIR}/Merchello.Site.slnx"
+
+          # Rename .csproj to include .Web suffix
+          mv "${PROJECT_DIR}/Merchello.Site.csproj" "${PROJECT_DIR}/Merchello.Site.Web.csproj"
+
+          # Rewrite namespaces: Merchello.Site. -> Merchello.Site.Web. in .cs and .cshtml files
+          find "${PROJECT_DIR}" \( -name '*.cs' -o -name '*.cshtml' \) -exec \
+            sed -i 's/Merchello\.Site\./Merchello.Site.Web./g' {} +
 
           # Replace ProjectReference with PackageReference
           sed -i 's|<ProjectReference Include="\.\.\\Merchello\\Merchello\.csproj" />|<PackageReference Include="Umbraco.Community.Merchello" Version="'"${VERSION}"'" />|' \
-            "${TEMPLATE_DIR}/Merchello.Site.csproj"
+            "${PROJECT_DIR}/Merchello.Site.Web.csproj"
 
           # Remove _ContentIncludedByDefault items
           sed -i '/<_ContentIncludedByDefault Remove=/d' \
-            "${TEMPLATE_DIR}/Merchello.Site.csproj"
+            "${PROJECT_DIR}/Merchello.Site.Web.csproj"
 
           # Remove empty Folder includes
           sed -i '/<Folder Include="Home\\" \/>/d' \
-            "${TEMPLATE_DIR}/Merchello.Site.csproj"
+            "${PROJECT_DIR}/Merchello.Site.Web.csproj"
 
           # Clean up empty ItemGroup blocks
           perl -0777 -i -pe 's|\s*<ItemGroup>\s*</ItemGroup>||g' \
-            "${TEMPLATE_DIR}/Merchello.Site.csproj"
+            "${PROJECT_DIR}/Merchello.Site.Web.csproj"
 
           # Remove Umbraco instance ID and Unattended install section from appsettings
           python3 -c "
           import json
-          with open('${TEMPLATE_DIR}/appsettings.json', 'r') as f:
+          with open('${PROJECT_DIR}/appsettings.json', 'r') as f:
               config = json.load(f)
           if 'Umbraco' in config and 'CMS' in config['Umbraco']:
               cms = config['Umbraco']['CMS']
@@ -180,7 +197,7 @@ jobs:
                   del cms['Global']['Id']
               if 'Unattended' in cms:
                   del cms['Unattended']
-          with open('${TEMPLATE_DIR}/appsettings.json', 'w') as f:
+          with open('${PROJECT_DIR}/appsettings.json', 'w') as f:
               json.dump(config, f, indent=2)
               f.write('\n')
           "
